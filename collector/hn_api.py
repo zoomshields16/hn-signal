@@ -1,18 +1,29 @@
-"""Thin wrapper around the public Hacker News API (no auth, no key)."""
+"""HN API calls. Public API, no key needed."""
 
 import requests
+from requests.adapters import HTTPAdapter, Retry
 
 from collector.config import HN_API_BASE
 
 
-def fetch_top_story_ids(session: requests.Session, limit: int) -> list[int]:
-    resp = session.get(f"{HN_API_BASE}/topstories.json", timeout=10)
+def make_session() -> requests.Session:
+    """Session that retries failed requests up to 3 times, backing off a bit more each time."""
+    # Retry on rate limiting (429) and server errors (5xx).
+    retry = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
+    session = requests.Session()
+    session.mount("https://", HTTPAdapter(max_retries=retry))
+    return session
+
+
+def fetch_new_story_ids(session: requests.Session) -> list[int]:
+    """Newest ~500 story IDs, newest first. Empty list if the API answers null."""
+    resp = session.get(f"{HN_API_BASE}/newstories.json", timeout=10)
     resp.raise_for_status()
-    return resp.json()[:limit]
+    return resp.json() or []
 
 
 def fetch_item(session: requests.Session, item_id: int) -> dict | None:
-    """Returns None for deleted/dead items, which the API reports as null."""
+    """None if the API answers null for this ID."""
     resp = session.get(f"{HN_API_BASE}/item/{item_id}.json", timeout=10)
     resp.raise_for_status()
     return resp.json()

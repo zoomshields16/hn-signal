@@ -1,3 +1,4 @@
+# Runs the tests on every PR (and on main) against a throwaway Postgres.
 name: CI
 
 on:
@@ -23,7 +24,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://hn_ci:hn_ci@localhost:5432/hn_ci
+      TEST_DATABASE_URL: postgresql://hn_ci:hn_ci@localhost:5432/hn_ci
 
     steps:
       - uses: actions/checkout@v4

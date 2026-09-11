@@ -1,40 +1,103 @@
-"""Polls the HN API and lands raw item JSON into Postgres.
+"""Main collector script: grab new stories, work out which are due, save the raw JSON.
 
 Usage:
-    python -m collector.collect --once   # single poll, exits (for cron/launchd)
-    python -m collector.collect          # foreground loop, polls every POLL_INTERVAL_SECONDS
+    python -m collector.collect --once   # One run, then exit (cron uses this)
+    python -m collector.collect          # Loop, one run every POLL_INTERVAL_SECONDS
 """
 
 import argparse
 import logging
 import time
+from datetime import datetime, timedelta, timezone
 
 import requests
 
-from collector.config import POLL_INTERVAL_SECONDS, TOP_N
-from collector.db import get_connection, insert_raw_snapshot
-from collector.hn_api import fetch_item, fetch_top_story_ids
+from collector.config import POLL_INTERVAL_SECONDS
+from collector.db import (
+    finish_run,
+    get_connection,
+    get_recent_stories,
+    insert_raw_snapshot,
+    start_run,
+    try_lock,
+)
+from collector.hn_api import fetch_item, fetch_new_story_ids, make_session
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
+# Young stories get checked every run, older ones about hourly, and we drop them after a day.
+YOUNG_FOR = timedelta(hours=2)
+TRACK_FOR = timedelta(hours=24)
+# 55, not 60, so a few seconds of drift can't bump a check to the next run.
+OLDER_EVERY = timedelta(minutes=55)
+
+
+def poll_slot(now: datetime) -> datetime:
+    """Start of the 5-minute slot `now` falls in, e.g. 12:07:31 -> 12:05:00."""
+    return now - timedelta(minutes=now.minute % 5, seconds=now.second, microseconds=now.microsecond)
+
+
+def is_due(age: timedelta, since_last_check: timedelta) -> bool:
+    if age >= TRACK_FOR:
+        return False
+    if age < YOUNG_FOR:
+        return True
+    return since_last_check >= OLDER_EVERY
+
+
+def pick_stories_to_check(
+    new_ids: list[int], recent: list[tuple[int, datetime, datetime]], now: datetime
+) -> list[int]:
+    """New stories we haven't seen yet, plus tracked ones that are due."""
+    seen = {hn_id for hn_id, _, _ in recent}
+    unseen = [hn_id for hn_id in new_ids if hn_id not in seen]
+    # A story with no posted time is usually deleted. It stays in seen so we stop refetching it.
+    due = [
+        hn_id
+        for hn_id, posted_at, last_checked_at in recent
+        if posted_at is not None and is_due(now - posted_at, now - last_checked_at)
+    ]
+    return unseen + due
+
 
 def run_once(session: requests.Session, conn) -> int:
-    """Fetches the current top stories and inserts one raw snapshot row per story.
-
-    Returns the number of stories successfully snapshotted.
-    """
-    story_ids = fetch_top_story_ids(session, TOP_N)
-    count = 0
-    for story_id in story_ids:
-        item = fetch_item(session, story_id)
-        if item is None:
-            logger.warning("item %s returned null (deleted/dead), skipping", story_id)
+    """One collector run. Returns how many stories got saved."""
+    # A slow run can still be going when cron starts the next one. Only one at a time.
+    if not try_lock(conn):
+        logger.warning("another run is still going, skipping this slot")
+        return 0
+    started = time.monotonic()
+    now = datetime.now(timezone.utc)
+    slot = poll_slot(now)
+    # Logged up front, so a run that crashes partway still shows up (with no finished_at).
+    run_id = start_run(conn, slot)
+    to_check = pick_stories_to_check(
+        fetch_new_story_ids(session), get_recent_stories(conn, TRACK_FOR), now
+    )
+    saved = failed = 0
+    for story_id in to_check:
+        try:
+            item = fetch_item(session, story_id)
+        except requests.RequestException:
+            # Session already retried, so one bad story shouldn't end the run.
+            logger.warning("item %s failed after retries, skipping", story_id)
+            failed += 1
             continue
-        insert_raw_snapshot(conn, story_id, item)
-        count += 1
-    logger.info("snapshotted %d/%d top stories", count, len(story_ids))
-    return count
+        if item is None:
+            logger.warning("item %s returned null, skipping", story_id)
+            continue
+        if insert_raw_snapshot(conn, story_id, item, slot):
+            saved += 1
+    finish_run(conn, run_id, due=len(to_check), saved=saved, failed=failed)
+    logger.info(
+        "slot %s: saved %d/%d stories in %.1fs",
+        slot.astimezone().strftime("%H:%M"),
+        saved,
+        len(to_check),
+        time.monotonic() - started,
+    )
+    return saved
 
 
 def main() -> None:
@@ -42,7 +105,7 @@ def main() -> None:
     parser.add_argument("--once", action="store_true", help="poll a single time and exit")
     args = parser.parse_args()
 
-    session = requests.Session()
+    session = make_session()
     conn = get_connection()
     try:
         if args.once:

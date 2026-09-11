@@ -1,33 +1,19 @@
-# 0001: Collector lands raw JSON, unmodified (ELT)
+# 0001: Store the raw JSON
 
-## Decision
-The collector polls the HN API's `topstories.json` and `item/{id}.json` endpoints
-and inserts each item's full JSON response into a single `raw_snapshots` table
-(`hn_id`, `fetched_at`, `payload jsonb`). No parsing or column extraction happens
-at collection time.
+## What we decided
+1. The collector saves the full JSON response for each story, exactly as the API returns it, in one table called raw_snapshots.
+2. Nothing is parsed or cleaned while collecting. The only field copied out of the JSON is the story id, so the table can be indexed by it.
 
 ## Why
-The HN API only exposes a story's *current* score — there's no endpoint to fetch
-its score history after the fact. If a poll is missed or a field is dropped
-during collection, that data point is gone forever. So the safest move is to
-capture the full raw response every time and defer all interpretation
-(normalizing into `stories`/`snapshots` tables, computing velocity, etc.) to SQL
-transforms that run against the accumulated raw data. That's ELT (Extract, Load,
-Transform) rather than ETL (Extract, Transform, Load): loading happens before
-any transformation, so transforms can be rewritten or fixed later without
-re-collecting.
+The HN API only gives a story's score right now. There is no way to ask what it was an hour ago. If we miss a reading, or drop a field while saving, that data is gone for good.
 
-## Alternatives considered
-- **Parse into typed columns at collection time (ETL).** Rejected: any bug or
-  scope miss in the parsing logic permanently loses that field for stories
-  already polled, since there's no re-fetch.
-- **Only store items that already have a score above some threshold.** Rejected:
-  the whole point of the project is comparing early scores to outcomes, so
-  low-scoring/failed stories are exactly the negative examples the mart needs.
+Saving the whole response removes that risk. Anything we want later, such as the comment count, is already sitting in the table, and the queries that clean the data can be rewritten as often as we need without collecting again.
 
-## Not done yet (later branches)
-- Idempotent inserts / de-duplication and cron/launchd scheduling — hours 4-5.
-- Normalized `stories`/`snapshots` schema and indexes — hours 6-7.
-- Handling collector downtime (Mac sleep) as visible gaps rather than hiding
-  them — will show up naturally once snapshots are analyzed, since the
-  `fetched_at` timestamps directly reveal any missed polling intervals.
+This is ELT: extract, load, then transform. ETL does the transform first, which would mean deciding up front which fields matter.
+
+## What we did not do
+1. Parse the JSON into columns while collecting. One mistake there loses a field for every story already saved.
+2. Only save stories above a certain score. The stories that never take off are half of the comparison this project is built on.
+
+## What comes later
+Turning the raw JSON into tidy tables and one summary row per story, using dbt.
