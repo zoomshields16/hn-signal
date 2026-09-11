@@ -56,7 +56,11 @@ def run_once(session: requests.Session, conn) -> int:
     )
     count = 0
     for story_id in to_check:
-        item = fetch_item(session, story_id)
+        try:
+            item = fetch_item(session, story_id)
+        except requests.RequestException:
+            logger.warning("item %s failed after retries, skipping", story_id)
+            continue
         if item is None:
             logger.warning("item %s returned null, skipping", story_id)
             continue
