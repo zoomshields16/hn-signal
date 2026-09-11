@@ -5,14 +5,15 @@ import requests
 from collector.config import HN_API_BASE
 
 
-def fetch_top_story_ids(session: requests.Session, limit: int) -> list[int]:
-    resp = session.get(f"{HN_API_BASE}/topstories.json", timeout=10)
+def fetch_new_story_ids(session: requests.Session) -> list[int]:
+    """Up to 500 newest story IDs, newest first."""
+    resp = session.get(f"{HN_API_BASE}/newstories.json", timeout=10)
     resp.raise_for_status()
-    return resp.json()[:limit]
+    return resp.json()
 
 
 def fetch_item(session: requests.Session, item_id: int) -> dict | None:
-    """Returns None for deleted/dead items, which the API reports as null."""
+    """None if the API answers null for this ID."""
     resp = session.get(f"{HN_API_BASE}/item/{item_id}.json", timeout=10)
     resp.raise_for_status()
     return resp.json()

@@ -21,6 +21,8 @@ cp .env.example .env
 ```
 
 ## Tests
+Tests use their own `hn_test` database, so they never touch collected data.
 ```
+createdb hn_test
 .venv/bin/pytest
 ```

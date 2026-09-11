@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from collector.hn_api import fetch_item, fetch_top_story_ids
+from collector.hn_api import fetch_item, fetch_new_story_ids
 
 
 def _mock_response(json_value):
@@ -10,15 +10,12 @@ def _mock_response(json_value):
     return resp
 
 
-def test_fetch_top_story_ids_truncates_to_limit():
+def test_fetch_new_story_ids_returns_the_list():
     session = MagicMock()
-    session.get.return_value = _mock_response([1, 2, 3, 4, 5])
+    session.get.return_value = _mock_response([3, 2, 1])
 
-    result = fetch_top_story_ids(session, limit=3)
-
-    assert result == [1, 2, 3]
-    session.get.assert_called_once()
-    assert "topstories.json" in session.get.call_args[0][0]
+    assert fetch_new_story_ids(session) == [3, 2, 1]
+    assert "newstories.json" in session.get.call_args[0][0]
 
 
 def test_fetch_item_returns_payload():
@@ -31,10 +28,8 @@ def test_fetch_item_returns_payload():
     assert "item/42.json" in session.get.call_args[0][0]
 
 
-def test_fetch_item_returns_none_for_deleted_item():
+def test_fetch_item_returns_none_when_api_answers_null():
     session = MagicMock()
     session.get.return_value = _mock_response(None)
 
-    result = fetch_item(session, 99)
-
-    assert result is None
+    assert fetch_item(session, 99) is None
