@@ -14,7 +14,7 @@ import requests
 
 from collector.config import POLL_INTERVAL_SECONDS
 from collector.db import get_connection, get_recent_stories, insert_raw_snapshot
-from collector.hn_api import fetch_item, fetch_new_story_ids
+from collector.hn_api import fetch_item, fetch_new_story_ids, make_session
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ def main() -> None:
     parser.add_argument("--once", action="store_true", help="poll a single time and exit")
     args = parser.parse_args()
 
-    session = requests.Session()
+    session = make_session()
     conn = get_connection()
     try:
         if args.once:

@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from collector.hn_api import fetch_item, fetch_new_story_ids
+from collector.hn_api import fetch_item, fetch_new_story_ids, make_session
 
 
 def _mock_response(json_value):
@@ -8,6 +8,13 @@ def _mock_response(json_value):
     resp.json.return_value = json_value
     resp.raise_for_status.return_value = None
     return resp
+
+
+def test_make_session_retries_failed_requests():
+    retries = make_session().get_adapter("https://hacker-news.firebaseio.com").max_retries
+
+    assert retries.total == 3
+    assert 503 in retries.status_forcelist
 
 
 def test_fetch_new_story_ids_returns_the_list():
