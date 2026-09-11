@@ -1,8 +1,7 @@
 """HN API calls. Public API, no key needed."""
 
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util import Retry
+from requests.adapters import HTTPAdapter, Retry
 
 from collector.config import HN_API_BASE
 
@@ -17,10 +16,10 @@ def make_session() -> requests.Session:
 
 
 def fetch_new_story_ids(session: requests.Session) -> list[int]:
-    """Newest ~500 story IDs, newest first."""
+    """Newest ~500 story IDs, newest first. Empty list if the API answers null."""
     resp = session.get(f"{HN_API_BASE}/newstories.json", timeout=10)
     resp.raise_for_status()
-    return resp.json()
+    return resp.json() or []
 
 
 def fetch_item(session: requests.Session, item_id: int) -> dict | None:

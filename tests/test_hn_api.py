@@ -27,6 +27,13 @@ def test_fetch_new_story_ids_returns_the_list():
     assert "newstories.json" in session.get.call_args[0][0]
 
 
+def test_fetch_new_story_ids_handles_a_null_response():
+    session = MagicMock()
+    session.get.return_value = _mock_response(None)
+
+    assert fetch_new_story_ids(session) == []
+
+
 def test_fetch_item_returns_payload():
     session = MagicMock()
     session.get.return_value = _mock_response({"id": 42, "score": 10, "title": "Test"})
