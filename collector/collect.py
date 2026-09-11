@@ -19,6 +19,7 @@ from collector.db import (
     get_recent_stories,
     insert_raw_snapshot,
     start_run,
+    try_lock,
 )
 from collector.hn_api import fetch_item, fetch_new_story_ids, make_session
 
@@ -61,6 +62,10 @@ def pick_stories_to_check(
 
 def run_once(session: requests.Session, conn) -> int:
     """One collector run. Returns how many stories got saved."""
+    # A slow run can still be going when cron starts the next one. Only one at a time.
+    if not try_lock(conn):
+        logger.warning("another run is still going, skipping this slot")
+        return 0
     started = time.monotonic()
     now = datetime.now(timezone.utc)
     slot = poll_slot(now)

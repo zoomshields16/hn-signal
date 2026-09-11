@@ -12,6 +12,15 @@ def get_connection() -> psycopg.Connection:
     return psycopg.connect(DATABASE_URL)
 
 
+# Any number works as the key. This one just means "the hn-signal collector".
+COLLECTOR_LOCK_KEY = 8675309
+
+
+def try_lock(conn: psycopg.Connection) -> bool:
+    """False if another run already holds the lock. Postgres frees it when the run exits."""
+    return conn.execute("SELECT pg_try_advisory_lock(%s)", (COLLECTOR_LOCK_KEY,)).fetchone()[0]
+
+
 def insert_raw_snapshot(
     conn: psycopg.Connection, hn_id: int, payload: dict, poll_slot: datetime
 ) -> bool:

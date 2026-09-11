@@ -41,6 +41,13 @@ def test_pick_includes_unseen_new_stories_and_due_tracked_ones():
     assert picked == [9, 1]
 
 
+@patch("collector.collect.start_run")
+@patch("collector.collect.try_lock", return_value=False)
+def test_run_once_skips_when_another_run_holds_the_lock(_mock_lock, mock_start_run):
+    assert run_once(MagicMock(), MagicMock()) == 0
+    mock_start_run.assert_not_called()
+
+
 @patch("collector.collect.insert_raw_snapshot")
 @patch("collector.collect.fetch_item")
 @patch("collector.collect.get_recent_stories", return_value=[])

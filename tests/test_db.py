@@ -7,7 +7,7 @@ from pathlib import Path
 import psycopg
 import pytest
 
-from collector.db import finish_run, get_recent_stories, insert_raw_snapshot, start_run
+from collector.db import finish_run, get_recent_stories, insert_raw_snapshot, start_run, try_lock
 
 SQL_DIR = Path(__file__).resolve().parent.parent / "sql"
 # Separate database, so tests never wipe real data.
@@ -73,3 +73,13 @@ def test_a_finished_run_records_its_counts(conn):
     ).fetchone()
 
     assert row == (SLOT, True, 10, 8, 1)
+
+
+def test_only_one_run_can_hold_the_lock(conn):
+    assert try_lock(conn)
+
+    second_run = psycopg.connect(TEST_DATABASE_URL)
+    try:
+        assert not try_lock(second_run)
+    finally:
+        second_run.close()
