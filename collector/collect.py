@@ -26,6 +26,11 @@ TRACK_FOR = timedelta(hours=24)
 OLDER_EVERY = timedelta(minutes=55)
 
 
+def poll_slot(now: datetime) -> datetime:
+    """Start of the 5-minute slot `now` falls in, e.g. 12:07:31 -> 12:05:00."""
+    return now - timedelta(minutes=now.minute % 5, seconds=now.second, microseconds=now.microsecond)
+
+
 def is_due(age: timedelta, since_last_check: timedelta) -> bool:
     if age >= TRACK_FOR:
         return False
@@ -52,6 +57,7 @@ def run_once(session: requests.Session, conn) -> int:
     """One collector run. Returns how many stories got saved."""
     started = time.monotonic()
     now = datetime.now(timezone.utc)
+    slot = poll_slot(now)
     to_check = pick_stories_to_check(
         fetch_new_story_ids(session), get_recent_stories(conn, TRACK_FOR), now
     )
@@ -66,9 +72,15 @@ def run_once(session: requests.Session, conn) -> int:
         if item is None:
             logger.warning("item %s returned null, skipping", story_id)
             continue
-        insert_raw_snapshot(conn, story_id, item)
-        count += 1
-    logger.info("saved %d/%d stories in %.1fs", count, len(to_check), time.monotonic() - started)
+        if insert_raw_snapshot(conn, story_id, item, slot):
+            count += 1
+    logger.info(
+        "slot %s: saved %d/%d stories in %.1fs",
+        slot.astimezone().strftime("%H:%M"),
+        count,
+        len(to_check),
+        time.monotonic() - started,
+    )
     return count
 
 

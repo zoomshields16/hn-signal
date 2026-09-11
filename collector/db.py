@@ -12,14 +12,22 @@ def get_connection() -> psycopg.Connection:
     return psycopg.connect(DATABASE_URL)
 
 
-def insert_raw_snapshot(conn: psycopg.Connection, hn_id: int, payload: dict) -> None:
-    """Store the response exactly as HN sent it. Cleanup happens later in SQL."""
+def insert_raw_snapshot(
+    conn: psycopg.Connection, hn_id: int, payload: dict, poll_slot: datetime
+) -> bool:
+    """Store the response exactly as HN sent it. False if this slot already has the story."""
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO raw_snapshots (hn_id, payload) VALUES (%s, %s)",
-            (hn_id, json.dumps(payload)),
+            """
+            INSERT INTO raw_snapshots (hn_id, poll_slot, payload)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (hn_id, poll_slot) DO NOTHING
+            """,
+            (hn_id, poll_slot, json.dumps(payload)),
         )
+        inserted = cur.rowcount == 1
     conn.commit()
+    return inserted
 
 
 def get_recent_stories(

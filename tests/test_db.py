@@ -9,15 +9,17 @@ import pytest
 
 from collector.db import get_recent_stories, insert_raw_snapshot
 
-DDL_PATH = Path(__file__).resolve().parent.parent / "sql" / "001_create_raw_snapshots.sql"
+SQL_DIR = Path(__file__).resolve().parent.parent / "sql"
 # Separate database, so tests never wipe real data.
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "postgresql://localhost:5432/hn_test")
+SLOT = datetime(2026, 9, 11, 12, 5, tzinfo=timezone.utc)
 
 
 @pytest.fixture
 def conn():
     connection = psycopg.connect(TEST_DATABASE_URL)
-    connection.execute(DDL_PATH.read_text())
+    for path in sorted(SQL_DIR.glob("*.sql")):
+        connection.execute(path.read_text())
     connection.execute("TRUNCATE raw_snapshots")
     connection.commit()
     yield connection
@@ -25,7 +27,7 @@ def conn():
 
 
 def test_insert_raw_snapshot_persists_payload(conn):
-    insert_raw_snapshot(conn, hn_id=123, payload={"id": 123, "score": 42, "title": "Hi"})
+    assert insert_raw_snapshot(conn, 123, {"id": 123, "score": 42, "title": "Hi"}, SLOT)
 
     row = conn.execute(
         "SELECT hn_id, payload FROM raw_snapshots WHERE hn_id = %s", (123,)
@@ -35,10 +37,20 @@ def test_insert_raw_snapshot_persists_payload(conn):
     assert row[1] == {"id": 123, "score": 42, "title": "Hi"}
 
 
+def test_same_story_is_saved_once_per_slot(conn):
+    assert insert_raw_snapshot(conn, 5, {"id": 5, "score": 1}, SLOT)
+    assert not insert_raw_snapshot(conn, 5, {"id": 5, "score": 2}, SLOT)
+    assert insert_raw_snapshot(conn, 5, {"id": 5, "score": 3}, SLOT + timedelta(minutes=5))
+
+    count = conn.execute("SELECT count(*) FROM raw_snapshots WHERE hn_id = 5").fetchone()[0]
+
+    assert count == 2
+
+
 def test_get_recent_stories_collapses_to_one_row_per_story(conn):
     posted = 1_700_000_000
-    insert_raw_snapshot(conn, hn_id=7, payload={"id": 7, "time": posted})
-    insert_raw_snapshot(conn, hn_id=7, payload={"id": 7, "time": posted})
+    insert_raw_snapshot(conn, 7, {"id": 7, "time": posted}, SLOT)
+    insert_raw_snapshot(conn, 7, {"id": 7, "time": posted}, SLOT + timedelta(minutes=5))
 
     rows = get_recent_stories(conn, timedelta(hours=24))
 

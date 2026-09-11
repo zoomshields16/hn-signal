@@ -10,7 +10,7 @@ JSON in Postgres (`raw_snapshots`). See `docs/decisions/` for why.
 python3.12 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 createdb hn
-psql -d hn -f sql/001_create_raw_snapshots.sql
+for f in sql/*.sql; do psql -d hn -f "$f"; done
 cp .env.example .env
 ```
 

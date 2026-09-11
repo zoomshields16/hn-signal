@@ -1,13 +1,19 @@
 """Collector tests. HN and the db are faked, so these run instantly."""
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import requests
 
-from collector.collect import is_due, pick_stories_to_check, run_once
+from collector.collect import is_due, pick_stories_to_check, poll_slot, run_once
 
 NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
+
+
+def test_poll_slot_rounds_down_to_five_minutes():
+    assert poll_slot(datetime(2026, 9, 11, 12, 7, 31, 500, tzinfo=timezone.utc)) == datetime(
+        2026, 9, 11, 12, 5, tzinfo=timezone.utc
+    )
 
 
 def test_young_stories_are_always_due():
@@ -45,8 +51,22 @@ def test_run_once_saves_each_picked_story(mock_new_ids, _mock_recent, mock_fetch
     conn = MagicMock()
 
     assert run_once(MagicMock(), conn) == 2
-    mock_insert.assert_any_call(conn, 1, {"id": 1, "score": 5})
-    mock_insert.assert_any_call(conn, 2, {"id": 2, "score": 7})
+    mock_insert.assert_any_call(conn, 1, {"id": 1, "score": 5}, ANY)
+    mock_insert.assert_any_call(conn, 2, {"id": 2, "score": 7}, ANY)
+
+
+@patch("collector.collect.insert_raw_snapshot")
+@patch("collector.collect.fetch_item")
+@patch("collector.collect.get_recent_stories", return_value=[])
+@patch("collector.collect.fetch_new_story_ids")
+def test_run_once_only_counts_rows_actually_saved(
+    mock_new_ids, _mock_recent, mock_fetch_item, mock_insert
+):
+    mock_new_ids.return_value = [1, 2]
+    mock_fetch_item.side_effect = [{"id": 1}, {"id": 2}]
+    mock_insert.side_effect = [True, False]  # Story 2 already saved in this slot
+
+    assert run_once(MagicMock(), MagicMock()) == 1
 
 
 @patch("collector.collect.insert_raw_snapshot")
@@ -59,7 +79,7 @@ def test_run_once_skips_null_items(mock_new_ids, _mock_recent, mock_fetch_item, 
     conn = MagicMock()
 
     assert run_once(MagicMock(), conn) == 1
-    mock_insert.assert_called_once_with(conn, 2, {"id": 2, "score": 7})
+    mock_insert.assert_called_once_with(conn, 2, {"id": 2, "score": 7}, ANY)
 
 
 @patch("collector.collect.insert_raw_snapshot")
@@ -74,4 +94,4 @@ def test_run_once_skips_a_story_that_keeps_failing(
     conn = MagicMock()
 
     assert run_once(MagicMock(), conn) == 1
-    mock_insert.assert_called_once_with(conn, 2, {"id": 2, "score": 7})
+    mock_insert.assert_called_once_with(conn, 2, {"id": 2, "score": 7}, ANY)
