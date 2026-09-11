@@ -85,6 +85,12 @@ def test_only_one_run_can_hold_the_lock(conn):
         second_run.close()
 
 
+def test_reading_the_watch_list_leaves_no_open_transaction(conn):
+    get_recent_stories(conn, timedelta(hours=24))
+
+    assert conn.info.transaction_status == psycopg.pq.TransactionStatus.IDLE
+
+
 def test_a_story_with_no_posted_time_still_counts_as_seen(conn):
     insert_raw_snapshot(conn, 9, {"id": 9, "deleted": True}, SLOT)
 

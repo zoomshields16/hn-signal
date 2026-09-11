@@ -46,7 +46,7 @@ def get_recent_stories(
 
     posted_at is null when the story has no time in its JSON, which happens with deleted ones.
     """
-    return conn.execute(
+    rows = conn.execute(
         """
         SELECT hn_id,
                to_timestamp(max((payload->>'time')::bigint)) AS posted_at,
@@ -57,6 +57,9 @@ def get_recent_stories(
         """,
         (window,),
     ).fetchall()
+    # Reading opens a transaction. Close it so the HTTP calls that follow are not inside one.
+    conn.commit()
+    return rows
 
 
 def start_run(conn: psycopg.Connection, poll_slot: datetime) -> int:
@@ -71,8 +74,10 @@ def start_run(conn: psycopg.Connection, poll_slot: datetime) -> int:
 def finish_run(conn: psycopg.Connection, run_id: int, due: int, saved: int, failed: int) -> None:
     conn.execute(
         """
+        -- clock_timestamp is the time right now. now() would be when the transaction started.
         UPDATE collector_runs
-        SET finished_at = now(), stories_due = %s, stories_saved = %s, stories_failed = %s
+        SET finished_at = clock_timestamp(), stories_due = %s, stories_saved = %s,
+            stories_failed = %s
         WHERE id = %s
         """,
         (due, saved, failed, run_id),
