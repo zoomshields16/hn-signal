@@ -13,7 +13,13 @@ from datetime import datetime, timedelta, timezone
 import requests
 
 from collector.config import POLL_INTERVAL_SECONDS
-from collector.db import get_connection, get_recent_stories, insert_raw_snapshot
+from collector.db import (
+    finish_run,
+    get_connection,
+    get_recent_stories,
+    insert_raw_snapshot,
+    start_run,
+)
 from collector.hn_api import fetch_item, fetch_new_story_ids, make_session
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -58,30 +64,34 @@ def run_once(session: requests.Session, conn) -> int:
     started = time.monotonic()
     now = datetime.now(timezone.utc)
     slot = poll_slot(now)
+    # Logged up front, so a run that crashes partway still shows up (with no finished_at).
+    run_id = start_run(conn, slot)
     to_check = pick_stories_to_check(
         fetch_new_story_ids(session), get_recent_stories(conn, TRACK_FOR), now
     )
-    count = 0
+    saved = failed = 0
     for story_id in to_check:
         try:
             item = fetch_item(session, story_id)
         except requests.RequestException:
             # Session already retried, so one bad story shouldn't end the run.
             logger.warning("item %s failed after retries, skipping", story_id)
+            failed += 1
             continue
         if item is None:
             logger.warning("item %s returned null, skipping", story_id)
             continue
         if insert_raw_snapshot(conn, story_id, item, slot):
-            count += 1
+            saved += 1
+    finish_run(conn, run_id, due=len(to_check), saved=saved, failed=failed)
     logger.info(
         "slot %s: saved %d/%d stories in %.1fs",
         slot.astimezone().strftime("%H:%M"),
-        count,
+        saved,
         len(to_check),
         time.monotonic() - started,
     )
-    return count
+    return saved
 
 
 def main() -> None:

@@ -95,3 +95,20 @@ def test_run_once_skips_a_story_that_keeps_failing(
 
     assert run_once(MagicMock(), conn) == 1
     mock_insert.assert_called_once_with(conn, 2, {"id": 2, "score": 7}, ANY)
+
+
+@patch("collector.collect.finish_run")
+@patch("collector.collect.start_run", return_value=42)
+@patch("collector.collect.insert_raw_snapshot", return_value=True)
+@patch("collector.collect.fetch_item")
+@patch("collector.collect.get_recent_stories", return_value=[])
+@patch("collector.collect.fetch_new_story_ids", return_value=[1, 2])
+def test_run_once_logs_the_run_with_its_counts(
+    _mock_new_ids, _mock_recent, mock_fetch_item, _mock_insert, _mock_start, mock_finish
+):
+    mock_fetch_item.side_effect = [requests.ConnectionError(), {"id": 2}]
+    conn = MagicMock()
+
+    run_once(MagicMock(), conn)
+
+    mock_finish.assert_called_once_with(conn, 42, due=2, saved=1, failed=1)

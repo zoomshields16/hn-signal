@@ -7,7 +7,7 @@ from pathlib import Path
 import psycopg
 import pytest
 
-from collector.db import get_recent_stories, insert_raw_snapshot
+from collector.db import finish_run, get_recent_stories, insert_raw_snapshot, start_run
 
 SQL_DIR = Path(__file__).resolve().parent.parent / "sql"
 # Separate database, so tests never wipe real data.
@@ -20,7 +20,7 @@ def conn():
     connection = psycopg.connect(TEST_DATABASE_URL)
     for path in sorted(SQL_DIR.glob("*.sql")):
         connection.execute(path.read_text())
-    connection.execute("TRUNCATE raw_snapshots")
+    connection.execute("TRUNCATE raw_snapshots, collector_runs")
     connection.commit()
     yield connection
     connection.close()
@@ -58,3 +58,18 @@ def test_get_recent_stories_collapses_to_one_row_per_story(conn):
     hn_id, posted_at, _last_checked_at = rows[0]
     assert hn_id == 7
     assert posted_at == datetime.fromtimestamp(posted, tz=timezone.utc)
+
+
+def test_a_finished_run_records_its_counts(conn):
+    run_id = start_run(conn, SLOT)
+    finish_run(conn, run_id, due=10, saved=8, failed=1)
+
+    row = conn.execute(
+        """
+        SELECT poll_slot, finished_at IS NOT NULL, stories_due, stories_saved, stories_failed
+        FROM collector_runs WHERE id = %s
+        """,
+        (run_id,),
+    ).fetchone()
+
+    assert row == (SLOT, True, 10, 8, 1)

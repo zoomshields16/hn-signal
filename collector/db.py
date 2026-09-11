@@ -46,3 +46,24 @@ def get_recent_stories(
         """,
         (window,),
     ).fetchall()
+
+
+def start_run(conn: psycopg.Connection, poll_slot: datetime) -> int:
+    """Log that a run started. Returns the run's id."""
+    run_id = conn.execute(
+        "INSERT INTO collector_runs (poll_slot) VALUES (%s) RETURNING id", (poll_slot,)
+    ).fetchone()[0]
+    conn.commit()
+    return run_id
+
+
+def finish_run(conn: psycopg.Connection, run_id: int, due: int, saved: int, failed: int) -> None:
+    conn.execute(
+        """
+        UPDATE collector_runs
+        SET finished_at = now(), stories_due = %s, stories_saved = %s, stories_failed = %s
+        WHERE id = %s
+        """,
+        (due, saved, failed, run_id),
+    )
+    conn.commit()
