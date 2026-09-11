@@ -41,6 +41,12 @@ def test_pick_includes_unseen_new_stories_and_due_tracked_ones():
     assert picked == [9, 1]
 
 
+def test_a_story_with_no_posted_time_is_seen_but_never_due():
+    recent = [(4, None, NOW - timedelta(minutes=5))]
+
+    assert pick_stories_to_check(new_ids=[4], recent=recent, now=NOW) == []
+
+
 @patch("collector.collect.start_run")
 @patch("collector.collect.try_lock", return_value=False)
 def test_run_once_skips_when_another_run_holds_the_lock(_mock_lock, mock_start_run):

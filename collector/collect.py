@@ -52,10 +52,11 @@ def pick_stories_to_check(
     """New stories we haven't seen yet, plus tracked ones that are due."""
     seen = {hn_id for hn_id, _, _ in recent}
     unseen = [hn_id for hn_id in new_ids if hn_id not in seen]
+    # A story with no posted time is usually deleted. It stays in seen so we stop refetching it.
     due = [
         hn_id
         for hn_id, posted_at, last_checked_at in recent
-        if is_due(now - posted_at, now - last_checked_at)
+        if posted_at is not None and is_due(now - posted_at, now - last_checked_at)
     ]
     return unseen + due
 
