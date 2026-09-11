@@ -8,6 +8,3 @@ CREATE TABLE IF NOT EXISTS raw_snapshots (
 );
 
 CREATE INDEX IF NOT EXISTS idx_raw_snapshots_hn_id ON raw_snapshots (hn_id);
-
--- The collector reads the last 24 hours of checks on every run.
-CREATE INDEX IF NOT EXISTS idx_raw_snapshots_fetched_at ON raw_snapshots (fetched_at);
