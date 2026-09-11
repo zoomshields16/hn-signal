@@ -1,3 +1,5 @@
+"""Tests against real Postgres (hn_test locally, a throwaway db in CI)."""
+
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -8,7 +10,7 @@ import pytest
 from collector.db import get_recent_stories, insert_raw_snapshot
 
 DDL_PATH = Path(__file__).resolve().parent.parent / "sql" / "001_create_raw_snapshots.sql"
-# A separate database, so running the tests never wipes collected data.
+# Separate database, so tests never wipe real data.
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "postgresql://localhost:5432/hn_test")
 
 

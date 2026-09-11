@@ -1,3 +1,5 @@
+"""Settings. Pulled from .env, with local defaults."""
+
 import os
 
 from dotenv import load_dotenv

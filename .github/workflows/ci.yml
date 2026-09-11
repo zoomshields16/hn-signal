@@ -1,3 +1,4 @@
+# Runs the tests on every PR (and on main) against a throwaway Postgres.
 name: CI
 
 on:

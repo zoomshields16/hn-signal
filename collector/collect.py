@@ -1,8 +1,8 @@
-"""Polls the HN API and lands raw item JSON into Postgres.
+"""Main collector script: grab new stories, work out which are due, save the raw JSON.
 
 Usage:
-    python -m collector.collect --once   # single poll, exits (for cron)
-    python -m collector.collect          # foreground loop, polls every POLL_INTERVAL_SECONDS
+    python -m collector.collect --once   # One run, then exit (cron uses this)
+    python -m collector.collect          # Loop, one run every POLL_INTERVAL_SECONDS
 """
 
 import argparse
@@ -19,9 +19,10 @@ from collector.hn_api import fetch_item, fetch_new_story_ids, make_session
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
+# Young stories get checked every run, older ones about hourly, and we drop them after a day.
 YOUNG_FOR = timedelta(hours=2)
 TRACK_FOR = timedelta(hours=24)
-# Just under an hour, so a few seconds of timing drift can't push a check to the next poll.
+# 55, not 60, so a few seconds of drift can't bump a check to the next run.
 OLDER_EVERY = timedelta(minutes=55)
 
 
@@ -36,7 +37,7 @@ def is_due(age: timedelta, since_last_check: timedelta) -> bool:
 def pick_stories_to_check(
     new_ids: list[int], recent: list[tuple[int, datetime, datetime]], now: datetime
 ) -> list[int]:
-    """Brand-new stories we haven't seen yet, plus tracked stories that are due."""
+    """New stories we haven't seen yet, plus tracked ones that are due."""
     seen = {hn_id for hn_id, _, _ in recent}
     unseen = [hn_id for hn_id in new_ids if hn_id not in seen]
     due = [
@@ -48,7 +49,7 @@ def pick_stories_to_check(
 
 
 def run_once(session: requests.Session, conn) -> int:
-    """Saves one raw snapshot for every story that's due. Returns how many were saved."""
+    """One collector run. Returns how many stories got saved."""
     started = time.monotonic()
     now = datetime.now(timezone.utc)
     to_check = pick_stories_to_check(
@@ -59,6 +60,7 @@ def run_once(session: requests.Session, conn) -> int:
         try:
             item = fetch_item(session, story_id)
         except requests.RequestException:
+            # Session already retried, so one bad story shouldn't end the run.
             logger.warning("item %s failed after retries, skipping", story_id)
             continue
         if item is None:

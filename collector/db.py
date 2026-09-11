@@ -1,3 +1,5 @@
+"""Postgres reads/writes for the collector."""
+
 import json
 from datetime import datetime, timedelta
 
@@ -11,6 +13,7 @@ def get_connection() -> psycopg.Connection:
 
 
 def insert_raw_snapshot(conn: psycopg.Connection, hn_id: int, payload: dict) -> None:
+    """Store the response exactly as HN sent it. Cleanup happens later in SQL."""
     with conn.cursor() as cur:
         cur.execute(
             "INSERT INTO raw_snapshots (hn_id, payload) VALUES (%s, %s)",
@@ -22,7 +25,7 @@ def insert_raw_snapshot(conn: psycopg.Connection, hn_id: int, payload: dict) -> 
 def get_recent_stories(
     conn: psycopg.Connection, window: timedelta
 ) -> list[tuple[int, datetime, datetime]]:
-    """(hn_id, posted_at, last_checked_at) for every story checked within `window`."""
+    """Watch list: (hn_id, posted_at, last_checked_at) for each recently checked story."""
     return conn.execute(
         """
         SELECT hn_id,

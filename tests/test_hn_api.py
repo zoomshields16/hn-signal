@@ -1,3 +1,5 @@
+"""HN API tests. Fake responses, so no internet needed."""
+
 from unittest.mock import MagicMock
 
 from collector.hn_api import fetch_item, fetch_new_story_ids, make_session

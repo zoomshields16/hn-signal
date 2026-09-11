@@ -1,3 +1,5 @@
+"""Collector tests. HN and the db are faked, so these run instantly."""
+
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -23,9 +25,9 @@ def test_stories_past_a_day_are_never_due():
 
 def test_pick_includes_unseen_new_stories_and_due_tracked_ones():
     recent = [
-        (1, NOW - timedelta(minutes=30), NOW - timedelta(minutes=5)),  # young: due
-        (2, NOW - timedelta(hours=5), NOW - timedelta(minutes=10)),  # checked recently: not due
-        (3, NOW - timedelta(hours=30), NOW - timedelta(hours=2)),  # over a day old: not due
+        (1, NOW - timedelta(minutes=30), NOW - timedelta(minutes=5)),  # Young: due
+        (2, NOW - timedelta(hours=5), NOW - timedelta(minutes=10)),  # Checked recently: not due
+        (3, NOW - timedelta(hours=30), NOW - timedelta(hours=2)),  # Over a day old: not due
     ]
 
     picked = pick_stories_to_check(new_ids=[9, 1], recent=recent, now=NOW)

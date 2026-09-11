@@ -1,4 +1,4 @@
-"""Thin wrapper around the public Hacker News API (no auth, no key)."""
+"""HN API calls. Public API, no key needed."""
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -8,7 +8,8 @@ from collector.config import HN_API_BASE
 
 
 def make_session() -> requests.Session:
-    """Retries a failed request up to 3 times, waiting a little longer before each try."""
+    """Session that retries failed requests up to 3 times, backing off a bit more each time."""
+    # Retry on rate limiting (429) and server errors (5xx).
     retry = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
     session = requests.Session()
     session.mount("https://", HTTPAdapter(max_retries=retry))
@@ -16,7 +17,7 @@ def make_session() -> requests.Session:
 
 
 def fetch_new_story_ids(session: requests.Session) -> list[int]:
-    """Up to 500 newest story IDs, newest first."""
+    """Newest ~500 story IDs, newest first."""
     resp = session.get(f"{HN_API_BASE}/newstories.json", timeout=10)
     resp.raise_for_status()
     return resp.json()

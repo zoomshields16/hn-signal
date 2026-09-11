@@ -1,6 +1,5 @@
--- Raw landing table for the HN collector (ELT: load untouched, transform later).
--- hn_id is pulled out of the payload only so we can index/query by it; every
--- other field stays inside payload exactly as the API returned it.
+-- Raw landing table: API responses stored as-is. Cleanup happens later in SQL (ELT).
+-- hn_id is copied out of the payload just so we can index it.
 CREATE TABLE IF NOT EXISTS raw_snapshots (
     id BIGSERIAL PRIMARY KEY,
     hn_id BIGINT NOT NULL,
@@ -10,5 +9,5 @@ CREATE TABLE IF NOT EXISTS raw_snapshots (
 
 CREATE INDEX IF NOT EXISTS idx_raw_snapshots_hn_id ON raw_snapshots (hn_id);
 
--- Every collector run looks up the last 24 hours of checks.
+-- The collector reads the last 24 hours of checks on every run.
 CREATE INDEX IF NOT EXISTS idx_raw_snapshots_fetched_at ON raw_snapshots (fetched_at);
