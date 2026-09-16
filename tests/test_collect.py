@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from unittest.mock import ANY, MagicMock, patch
 
+import pytest
 import requests
 
 from collector.collect import is_due, pick_stories_to_check, poll_slot, run_once
@@ -52,6 +53,18 @@ def test_a_story_with_no_posted_time_is_seen_but_never_due():
 def test_run_once_skips_when_another_run_holds_the_lock(_mock_lock, mock_start_run):
     assert run_once(MagicMock(), MagicMock()) == 0
     mock_start_run.assert_not_called()
+
+
+@patch("collector.collect.unlock")
+@patch("collector.collect.try_lock", return_value=True)
+@patch("collector.collect.fetch_new_story_ids", side_effect=requests.ConnectionError())
+def test_run_once_releases_the_lock_even_if_the_run_fails(_mock_new_ids, _mock_lock, mock_unlock):
+    conn = MagicMock()
+
+    with pytest.raises(requests.ConnectionError):
+        run_once(MagicMock(), conn)
+
+    mock_unlock.assert_called_once_with(conn)
 
 
 @patch("collector.collect.insert_raw_snapshot")

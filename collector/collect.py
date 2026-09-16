@@ -20,6 +20,7 @@ from collector.db import (
     insert_raw_snapshot,
     start_run,
     try_lock,
+    unlock,
 )
 from collector.hn_api import fetch_item, fetch_new_story_ids, make_session
 
@@ -67,6 +68,13 @@ def run_once(session: requests.Session, conn) -> int:
     if not try_lock(conn):
         logger.warning("another run is still going, skipping this slot")
         return 0
+    try:
+        return _collect(session, conn)
+    finally:
+        unlock(conn)
+
+
+def _collect(session: requests.Session, conn) -> int:
     started = time.monotonic()
     now = datetime.now(timezone.utc)
     slot = poll_slot(now)

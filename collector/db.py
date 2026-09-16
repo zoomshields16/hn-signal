@@ -17,8 +17,16 @@ COLLECTOR_LOCK_KEY = 8675309
 
 
 def try_lock(conn: psycopg.Connection) -> bool:
-    """False if another run already holds the lock. Postgres frees it when the run exits."""
-    return conn.execute("SELECT pg_try_advisory_lock(%s)", (COLLECTOR_LOCK_KEY,)).fetchone()[0]
+    """False if another run already holds the lock."""
+    locked = conn.execute("SELECT pg_try_advisory_lock(%s)", (COLLECTOR_LOCK_KEY,)).fetchone()[0]
+    conn.commit()
+    return locked
+
+
+def unlock(conn: psycopg.Connection) -> None:
+    conn.rollback()  # Clears a failed statement if the run crashed partway.
+    conn.execute("SELECT pg_advisory_unlock(%s)", (COLLECTOR_LOCK_KEY,))
+    conn.commit()
 
 
 def insert_raw_snapshot(
