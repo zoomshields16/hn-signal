@@ -32,6 +32,8 @@ YOUNG_FOR = timedelta(hours=2)
 TRACK_FOR = timedelta(hours=24)
 # 55, not 60, so a few seconds of drift can't bump a check to the next run.
 OLDER_EVERY = timedelta(minutes=55)
+# Stop starting new fetches after 4 minutes, so a slow run ends before the next cron run.
+RUN_DEADLINE_SECONDS = 240
 
 
 def poll_slot(now: datetime) -> datetime:
@@ -86,7 +88,10 @@ def _collect(session: requests.Session, conn) -> int:
         fetch_new_story_ids(session), get_recent_stories(conn, TRACK_FOR), now
     )
     saved = failed = nulls = 0
-    for story_id in to_check:
+    for i, story_id in enumerate(to_check):
+        if time.monotonic() - started > RUN_DEADLINE_SECONDS:
+            logger.warning("out of time, leaving %d stories for the next run", len(to_check) - i)
+            break
         try:
             item = fetch_item(session, story_id)
         except requests.RequestException:

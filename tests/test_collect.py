@@ -139,3 +139,18 @@ def test_run_once_logs_the_run_with_its_counts(
     run_once(MagicMock(), conn)
 
     mock_finish.assert_called_once_with(conn, 42, due=3, saved=1, failed=1, nulls=1)
+
+
+@patch("collector.collect.time")
+@patch("collector.collect.insert_raw_snapshot", return_value=True)
+@patch("collector.collect.fetch_item", return_value={"id": 1})
+@patch("collector.collect.get_recent_stories", return_value=[])
+@patch("collector.collect.fetch_new_story_ids", return_value=[1, 2, 3])
+def test_run_stops_starting_new_fetches_after_the_deadline(
+    _mock_new_ids, _mock_recent, mock_fetch_item, _mock_insert, mock_time
+):
+    # Clock: start, before story 1, before story 2 (too late), log line.
+    mock_time.monotonic.side_effect = [0, 0, 300, 300]
+
+    assert run_once(MagicMock(), MagicMock()) == 1
+    mock_fetch_item.assert_called_once()

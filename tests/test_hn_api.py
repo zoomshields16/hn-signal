@@ -17,6 +17,8 @@ def test_make_session_retries_failed_requests():
 
     assert retries.total == 3
     assert 503 in retries.status_forcelist
+    assert 429 not in retries.status_forcelist
+    assert not retries.respect_retry_after_header
 
 
 def test_fetch_new_story_ids_returns_the_list():

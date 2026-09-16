@@ -8,8 +8,14 @@ from collector.config import HN_API_BASE
 
 def make_session() -> requests.Session:
     """Session that retries failed requests up to 3 times, backing off a bit more each time."""
-    # Retry on rate limiting (429) and server errors (5xx).
-    retry = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
+    # Retry server errors (5xx) only. On a 429 we skip the story and the next run tries again,
+    # and we never wait on a Retry-After header, which could stall a run for an hour.
+    retry = Retry(
+        total=3,
+        backoff_factor=0.5,
+        status_forcelist=[500, 502, 503, 504],
+        respect_retry_after_header=False,
+    )
     session = requests.Session()
     session.mount("https://", HTTPAdapter(max_retries=retry))
     return session
