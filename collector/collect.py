@@ -57,7 +57,7 @@ def pick_stories_to_check(
     """New stories we haven't seen yet, plus tracked ones that are due."""
     seen = {hn_id for hn_id, _, _ in recent}
     unseen = [hn_id for hn_id in new_ids if hn_id not in seen]
-    # A story with no posted time is usually deleted. It stays in seen so we stop refetching it.
+    # No posted time means HN answered null, usually for a deleted story. Seen, but never due.
     due = [
         hn_id
         for hn_id, posted_at, last_checked_at in recent
@@ -100,17 +100,19 @@ def _collect(session: requests.Session, conn) -> int:
             failed += 1
             continue
         if item is None:
-            logger.warning("item %s returned null, skipping", story_id)
+            # Saving the null answer marks the story as seen, so we stop asking about it.
+            insert_raw_snapshot(conn, story_id, None, slot)
             nulls += 1
             continue
         if insert_raw_snapshot(conn, story_id, item, slot):
             saved += 1
     finish_run(conn, run_id, due=len(to_check), saved=saved, failed=failed, nulls=nulls)
     logger.info(
-        "slot %s: saved %d/%d stories in %.1fs",
+        "slot %s: saved %d/%d stories (%d null) in %.1fs",
         slot.astimezone().strftime("%H:%M"),
         saved,
         len(to_check),
+        nulls,
         time.monotonic() - started,
     )
     return saved

@@ -98,8 +98,9 @@ def test_reading_the_watch_list_leaves_no_open_transaction(conn):
     assert conn.info.transaction_status == psycopg.pq.TransactionStatus.IDLE
 
 
-def test_a_story_with_no_posted_time_still_counts_as_seen(conn):
-    insert_raw_snapshot(conn, 9, {"id": 9, "deleted": True}, SLOT)
+@pytest.mark.parametrize("payload", [None, {"id": 9, "deleted": True}])
+def test_a_story_with_no_posted_time_still_counts_as_seen(conn, payload):
+    assert insert_raw_snapshot(conn, 9, payload, SLOT)
 
     rows = get_recent_stories(conn, timedelta(hours=24))
 

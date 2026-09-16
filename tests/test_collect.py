@@ -100,13 +100,16 @@ def test_run_once_only_counts_rows_actually_saved(
 @patch("collector.collect.fetch_item")
 @patch("collector.collect.get_recent_stories", return_value=[])
 @patch("collector.collect.fetch_new_story_ids")
-def test_run_once_skips_null_items(mock_new_ids, _mock_recent, mock_fetch_item, mock_insert):
+def test_run_once_saves_null_answers_without_counting_them(
+    mock_new_ids, _mock_recent, mock_fetch_item, mock_insert
+):
     mock_new_ids.return_value = [1, 2]
     mock_fetch_item.side_effect = [None, {"id": 2, "score": 7}]
     conn = MagicMock()
 
     assert run_once(MagicMock(), conn) == 1
-    mock_insert.assert_called_once_with(conn, 2, {"id": 2, "score": 7}, ANY)
+    mock_insert.assert_any_call(conn, 1, None, ANY)
+    mock_insert.assert_any_call(conn, 2, {"id": 2, "score": 7}, ANY)
 
 
 @patch("collector.collect.insert_raw_snapshot")
