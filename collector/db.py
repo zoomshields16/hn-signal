@@ -79,15 +79,17 @@ def start_run(conn: psycopg.Connection, poll_slot: datetime) -> int:
     return run_id
 
 
-def finish_run(conn: psycopg.Connection, run_id: int, due: int, saved: int, failed: int) -> None:
+def finish_run(
+    conn: psycopg.Connection, run_id: int, due: int, saved: int, failed: int, nulls: int
+) -> None:
     conn.execute(
         """
         -- clock_timestamp is the time right now. now() would be when the transaction started.
         UPDATE collector_runs
         SET finished_at = clock_timestamp(), stories_due = %s, stories_saved = %s,
-            stories_failed = %s
+            stories_failed = %s, stories_null = %s
         WHERE id = %s
         """,
-        (due, saved, failed, run_id),
+        (due, saved, failed, nulls, run_id),
     )
     conn.commit()

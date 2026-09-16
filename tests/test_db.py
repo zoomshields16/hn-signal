@@ -62,17 +62,18 @@ def test_get_recent_stories_collapses_to_one_row_per_story(conn):
 
 def test_a_finished_run_records_its_counts(conn):
     run_id = start_run(conn, SLOT)
-    finish_run(conn, run_id, due=10, saved=8, failed=1)
+    finish_run(conn, run_id, due=10, saved=7, failed=1, nulls=2)
 
     row = conn.execute(
         """
-        SELECT poll_slot, finished_at IS NOT NULL, stories_due, stories_saved, stories_failed
+        SELECT poll_slot, finished_at IS NOT NULL,
+               stories_due, stories_saved, stories_failed, stories_null
         FROM collector_runs WHERE id = %s
         """,
         (run_id,),
     ).fetchone()
 
-    assert row == (SLOT, True, 10, 8, 1)
+    assert row == (SLOT, True, 10, 7, 1, 2)
 
 
 def test_only_one_run_can_hold_the_lock(conn):

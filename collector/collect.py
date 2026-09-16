@@ -83,7 +83,7 @@ def _collect(session: requests.Session, conn) -> int:
     to_check = pick_stories_to_check(
         fetch_new_story_ids(session), get_recent_stories(conn, TRACK_FOR), now
     )
-    saved = failed = 0
+    saved = failed = nulls = 0
     for story_id in to_check:
         try:
             item = fetch_item(session, story_id)
@@ -94,10 +94,11 @@ def _collect(session: requests.Session, conn) -> int:
             continue
         if item is None:
             logger.warning("item %s returned null, skipping", story_id)
+            nulls += 1
             continue
         if insert_raw_snapshot(conn, story_id, item, slot):
             saved += 1
-    finish_run(conn, run_id, due=len(to_check), saved=saved, failed=failed)
+    finish_run(conn, run_id, due=len(to_check), saved=saved, failed=failed, nulls=nulls)
     logger.info(
         "slot %s: saved %d/%d stories in %.1fs",
         slot.astimezone().strftime("%H:%M"),
