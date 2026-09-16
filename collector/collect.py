@@ -1,18 +1,15 @@
 """Main collector script: grab new stories, work out which are due, save the raw JSON.
 
-Usage:
-    python -m collector.collect --once   # One run, then exit (cron uses this)
-    python -m collector.collect          # Loop, one run every POLL_INTERVAL_SECONDS
+Each call does one run and exits. Cron runs it every 5 minutes:
+    python -m collector.collect
 """
 
-import argparse
 import logging
 import time
 from datetime import datetime, timedelta, timezone
 
 import requests
 
-from collector.config import POLL_INTERVAL_SECONDS
 from collector.db import (
     finish_run,
     get_connection,
@@ -119,22 +116,9 @@ def _collect(session: requests.Session, conn) -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--once", action="store_true", help="poll a single time and exit")
-    args = parser.parse_args()
-
-    session = make_session()
     conn = get_connection()
     try:
-        if args.once:
-            run_once(session, conn)
-            return
-        while True:
-            try:
-                run_once(session, conn)
-            except requests.RequestException:
-                logger.exception("poll failed, will retry next interval")
-            time.sleep(POLL_INTERVAL_SECONDS)
+        run_once(make_session(), conn)
     finally:
         conn.close()
 
