@@ -7,7 +7,14 @@ from pathlib import Path
 import psycopg
 import pytest
 
-from collector.db import finish_run, get_recent_stories, insert_raw_snapshot, start_run, try_lock
+from collector.db import (
+    finish_run,
+    get_recent_stories,
+    insert_raw_snapshot,
+    start_run,
+    try_lock,
+    unlock,
+)
 
 SQL_DIR = Path(__file__).resolve().parent.parent / "sql"
 # Separate database, so tests never wipe real data.
@@ -91,6 +98,29 @@ def test_only_one_run_can_hold_the_lock(conn):
         assert not try_lock(second_run)
     finally:
         second_run.close()
+
+
+def test_unlock_lets_the_next_run_take_the_lock(conn):
+    assert try_lock(conn)
+    unlock(conn)
+
+    next_run = psycopg.connect(TEST_DATABASE_URL)
+    try:
+        assert try_lock(next_run)
+    finally:
+        next_run.close()
+
+
+def test_unlock_does_nothing_on_a_closed_connection():
+    closed = psycopg.connect(TEST_DATABASE_URL)
+    closed.close()
+
+    unlock(closed)
+
+
+def test_a_story_postgres_cannot_store_raises_a_data_error(conn):
+    with pytest.raises(psycopg.DataError):
+        insert_raw_snapshot(conn, 3, {"id": 3, "text": "a" + chr(0) + "b"}, SLOT)
 
 
 def test_reading_the_watch_list_leaves_no_open_transaction(conn):

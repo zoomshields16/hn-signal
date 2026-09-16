@@ -8,6 +8,7 @@ import logging
 import time
 from datetime import datetime, timedelta, timezone
 
+import psycopg
 import requests
 
 from collector.db import (
@@ -116,7 +117,15 @@ def _collect(session: requests.Session, conn) -> int:
             # Brand new stories often come back null for a few seconds. Try again next run.
             nulls += 1
             continue
-        if insert_raw_snapshot(conn, story_id, item, slot):
+        try:
+            inserted = insert_raw_snapshot(conn, story_id, item, slot)
+        except psycopg.DataError:
+            # One story Postgres can't store (e.g. a null character) shouldn't end the run.
+            conn.rollback()
+            logger.warning("item %s could not be saved, skipping", story_id)
+            failed += 1
+            continue
+        if inserted:
             saved += 1
     finish_run(conn, run_id, due=len(to_check), saved=saved, failed=failed, nulls=nulls)
     logger.info(

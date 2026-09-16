@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from unittest.mock import ANY, MagicMock, patch
 
+import psycopg
 import pytest
 import requests
 
@@ -146,6 +147,19 @@ def test_run_once_skips_a_story_that_keeps_failing(
 
     assert run_once(MagicMock(), conn) == 1
     mock_insert.assert_called_once_with(conn, 2, {"id": 2, "score": 7}, ANY)
+
+
+@patch("collector.collect.insert_raw_snapshot")
+@patch("collector.collect.fetch_item")
+@patch("collector.collect.get_recent_stories", return_value=[])
+@patch("collector.collect.fetch_new_story_ids", return_value=[1, 2])
+def test_run_once_skips_a_story_that_cannot_be_saved(
+    _mock_new_ids, _mock_recent, mock_fetch_item, mock_insert
+):
+    mock_fetch_item.side_effect = [{"id": 1}, {"id": 2}]
+    mock_insert.side_effect = [psycopg.DataError("bad character"), True]
+
+    assert run_once(MagicMock(), MagicMock()) == 1
 
 
 @patch("collector.collect.finish_run")
