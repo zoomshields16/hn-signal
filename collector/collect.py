@@ -29,6 +29,9 @@ YOUNG_FOR = timedelta(hours=2)
 TRACK_FOR = timedelta(hours=24)
 # 55, not 60, so a few seconds of drift can't bump a check to the next run.
 OLDER_EVERY = timedelta(minutes=55)
+# A late run can end just before the next slot starts. Without this gap, the next run
+# would save the same readings a few seconds later.
+MIN_GAP = timedelta(minutes=4)
 # Stop starting new fetches after 4 minutes, so a slow run ends before the next cron run.
 RUN_DEADLINE_SECONDS = 240
 
@@ -39,7 +42,7 @@ def poll_slot(now: datetime) -> datetime:
 
 
 def is_due(age: timedelta, since_last_check: timedelta) -> bool:
-    if age >= TRACK_FOR:
+    if age >= TRACK_FOR or since_last_check < MIN_GAP:
         return False
     if age < YOUNG_FOR:
         return True
@@ -48,19 +51,26 @@ def is_due(age: timedelta, since_last_check: timedelta) -> bool:
 
 def pick_stories_to_check(
     new_ids: list[int],
-    recent: list[tuple[int, datetime | None, datetime]],
+    recent: list[tuple[int, datetime | None, datetime, bool]],
     now: datetime,
 ) -> list[int]:
-    """New stories we haven't seen yet, plus tracked ones that are due."""
-    seen = {hn_id for hn_id, _, _ in recent}
+    """Stories to check this run, most time-sensitive first."""
+    seen = {hn_id for hn_id, *_ in recent}
     unseen = [hn_id for hn_id in new_ids if hn_id not in seen]
-    # A row with no usable posted time can't be aged, so it is never due.
-    due = [
-        hn_id
-        for hn_id, posted_at, last_checked_at in recent
-        if posted_at is not None and is_due(now - posted_at, now - last_checked_at)
-    ]
-    return unseen + due
+    young, older = [], []
+    for hn_id, posted_at, last_checked_at, deleted in recent:
+        # A row with no usable posted time can't be aged, so it is never due.
+        if deleted or posted_at is None:
+            continue
+        age = now - posted_at
+        if not is_due(age, now - last_checked_at):
+            continue
+        if age < YOUNG_FOR:
+            young.append(hn_id)
+        else:
+            older.append(hn_id)
+    # If a run hits its time limit, whatever is at the end waits for the next run.
+    return young + unseen + older
 
 
 def run_once(session: requests.Session, conn) -> int:

@@ -21,6 +21,10 @@ def test_young_stories_are_always_due():
     assert is_due(age=timedelta(minutes=30), since_last_check=timedelta(minutes=5))
 
 
+def test_nothing_is_due_twice_within_four_minutes():
+    assert not is_due(age=timedelta(minutes=30), since_last_check=timedelta(minutes=1))
+
+
 def test_older_stories_are_due_about_hourly():
     assert not is_due(age=timedelta(hours=5), since_last_check=timedelta(minutes=20))
     assert is_due(age=timedelta(hours=5), since_last_check=timedelta(minutes=58))
@@ -30,22 +34,29 @@ def test_stories_past_a_day_are_never_due():
     assert not is_due(age=timedelta(hours=25), since_last_check=timedelta(hours=3))
 
 
-def test_pick_includes_unseen_new_stories_and_due_tracked_ones():
+def test_pick_puts_young_stories_first_then_new_then_older():
     recent = [
-        (1, NOW - timedelta(minutes=30), NOW - timedelta(minutes=5)),  # Young: due
-        (2, NOW - timedelta(hours=5), NOW - timedelta(minutes=10)),  # Checked recently: not due
-        (3, NOW - timedelta(hours=30), NOW - timedelta(hours=2)),  # Over a day old: not due
+        (4, NOW - timedelta(hours=5), NOW - timedelta(minutes=58), False),  # Older: due
+        (1, NOW - timedelta(minutes=30), NOW - timedelta(minutes=5), False),  # Young: due
+        (2, NOW - timedelta(hours=5), NOW - timedelta(minutes=10), False),  # Not due yet
+        (3, NOW - timedelta(hours=30), NOW - timedelta(hours=2), False),  # Over a day old
     ]
 
     picked = pick_stories_to_check(new_ids=[9, 1], recent=recent, now=NOW)
 
-    assert picked == [9, 1]
+    assert picked == [1, 9, 4]
 
 
 def test_a_story_with_no_posted_time_is_seen_but_never_due():
-    recent = [(4, None, NOW - timedelta(minutes=5))]
+    recent = [(4, None, NOW - timedelta(minutes=5), False)]
 
     assert pick_stories_to_check(new_ids=[4], recent=recent, now=NOW) == []
+
+
+def test_a_deleted_story_is_seen_but_never_due():
+    recent = [(5, NOW - timedelta(minutes=30), NOW - timedelta(minutes=5), True)]
+
+    assert pick_stories_to_check(new_ids=[5], recent=recent, now=NOW) == []
 
 
 @patch("collector.collect.start_run")

@@ -49,16 +49,22 @@ def insert_raw_snapshot(
 
 def get_recent_stories(
     conn: psycopg.Connection, window: timedelta
-) -> list[tuple[int, datetime | None, datetime]]:
-    """Watch list: (hn_id, posted_at, last_checked_at) for each recently checked story.
+) -> list[tuple[int, datetime | None, datetime, bool]]:
+    """Watch list: (hn_id, posted_at, last_checked_at, deleted) for each recently checked story.
 
-    posted_at is null when the story has no time in its JSON, which happens with deleted ones.
+    posted_at is null when no saved row has a usable time.
     """
     rows = conn.execute(
         """
         SELECT hn_id,
-               to_timestamp(max((payload->>'time')::bigint)) AS posted_at,
-               max(fetched_at) AS last_checked_at
+               -- Only numeric times count, so one odd row can't break every run.
+               to_timestamp(max(
+                   CASE WHEN jsonb_typeof(payload -> 'time') = 'number'
+                        THEN (payload ->> 'time')::double precision
+                   END
+               )) AS posted_at,
+               max(fetched_at) AS last_checked_at,
+               coalesce(bool_or(payload ->> 'deleted' = 'true'), false) AS deleted
         FROM raw_snapshots
         WHERE fetched_at > now() - %s
         GROUP BY hn_id

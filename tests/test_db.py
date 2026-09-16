@@ -61,9 +61,10 @@ def test_get_recent_stories_collapses_to_one_row_per_story(conn):
     rows = get_recent_stories(conn, timedelta(hours=24))
 
     assert len(rows) == 1
-    hn_id, posted_at, _last_checked_at = rows[0]
+    hn_id, posted_at, _last_checked_at, deleted = rows[0]
     assert hn_id == 7
     assert posted_at == datetime.fromtimestamp(posted, tz=timezone.utc)
+    assert deleted is False
 
 
 def test_a_finished_run_records_its_counts(conn):
@@ -103,4 +104,23 @@ def test_a_story_with_no_posted_time_still_counts_as_seen(conn):
 
     rows = get_recent_stories(conn, timedelta(hours=24))
 
-    assert [(hn_id, posted_at) for hn_id, posted_at, _ in rows] == [(9, None)]
+    assert [(hn_id, posted_at) for hn_id, posted_at, *_ in rows] == [(9, None)]
+
+
+def test_a_story_marked_deleted_is_flagged(conn):
+    posted = 1_700_000_000
+    insert_raw_snapshot(conn, 8, {"id": 8, "time": posted}, SLOT)
+    later = SLOT + timedelta(minutes=5)
+    insert_raw_snapshot(conn, 8, {"id": 8, "time": posted, "deleted": True}, later)
+
+    rows = get_recent_stories(conn, timedelta(hours=24))
+
+    assert [(hn_id, deleted) for hn_id, _, _, deleted in rows] == [(8, True)]
+
+
+def test_an_odd_time_value_does_not_break_the_watch_list(conn):
+    insert_raw_snapshot(conn, 6, {"id": 6, "time": "soon"}, SLOT)
+
+    rows = get_recent_stories(conn, timedelta(hours=24))
+
+    assert [(hn_id, posted_at) for hn_id, posted_at, *_ in rows] == [(6, None)]
