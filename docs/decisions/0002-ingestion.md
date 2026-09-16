@@ -15,7 +15,7 @@ Checking by age keeps the request count reasonable. Checking every tracked story
 
 Two runs can overlap, for example if cron starts while a slow run is still going. Without a guard the same story gets saved twice seconds apart, which later looks like two real readings. A run now takes a lock in Postgres before it does anything, so the second run skips its slot instead of racing. Inside a single run, the unique constraint on story and slot stops repeats. This already happened once and left 148 duplicate rows, which the sql/002 migration removed.
 
-The laptop sleeps, so the collector stops with it. The run log makes that visible. A slot with no row means the collector was not running. A row with no finish time means that run crashed.
+The laptop sleeps, so the collector stops with it. The run log makes that visible. A slot with no row means the collector was not running, or an earlier run still had the lock. A row with no finish time means that run crashed.
 
 ## What we did not do
 1. Keep the top 100 list. It drops the stories we need to compare against.
