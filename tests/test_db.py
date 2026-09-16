@@ -15,11 +15,17 @@ TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "postgresql://localhost:
 SLOT = datetime(2026, 9, 11, 12, 5, tzinfo=timezone.utc)
 
 
+@pytest.fixture(scope="session")
+def schema():
+    # Runs every migration once, like a fresh setup.
+    with psycopg.connect(TEST_DATABASE_URL) as connection:
+        for path in sorted(SQL_DIR.glob("*.sql")):
+            connection.execute(path.read_text())
+
+
 @pytest.fixture
-def conn():
+def conn(schema):
     connection = psycopg.connect(TEST_DATABASE_URL)
-    for path in sorted(SQL_DIR.glob("*.sql")):
-        connection.execute(path.read_text())
     connection.execute("TRUNCATE raw_snapshots, collector_runs")
     connection.commit()
     yield connection

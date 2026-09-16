@@ -77,6 +77,7 @@ def test_run_once_saves_each_picked_story(mock_new_ids, _mock_recent, mock_fetch
     conn = MagicMock()
 
     assert run_once(MagicMock(), conn) == 2
+    assert mock_insert.call_count == 2
     mock_insert.assert_any_call(conn, 1, {"id": 1, "score": 5}, ANY)
     mock_insert.assert_any_call(conn, 2, {"id": 2, "score": 7}, ANY)
 
