@@ -2,8 +2,9 @@
 Predicting Hacker News front-page performance from early engagement signals. Postgres, dbt, Python.
 
 ## Status
-Work in progress. Currently: a collector polls the HN API and lands raw story
-JSON in Postgres (`raw_snapshots`). See `docs/decisions/` for why.
+Work in progress. A collector runs every 5 minutes, follows each new story through
+its first day, and saves the raw JSON in Postgres (`raw_snapshots`), with one row
+per run in `collector_runs`. See `docs/decisions/` for why.
 
 ## Setup
 ```
