@@ -24,9 +24,11 @@ def try_lock(conn: psycopg.Connection) -> bool:
 
 
 def unlock(conn: psycopg.Connection) -> None:
+    # A lost connection means Postgres already dropped the lock.
     if conn.closed or conn.broken:
-        return  # Postgres already dropped the lock along with the connection.
-    conn.rollback()  # Clears a failed statement if the run crashed partway.
+        return
+    # Clears a failed statement if the run crashed partway.
+    conn.rollback()
     conn.execute("SELECT pg_advisory_unlock(%s)", (COLLECTOR_LOCK_KEY,))
     conn.commit()
 

@@ -79,7 +79,7 @@ def pick_stories_to_check(
     return young + unseen + older
 
 
-def run_once(session: requests.Session, conn) -> int:
+def run_once(session: requests.Session, conn: psycopg.Connection) -> int:
     """One collector run. Returns how many stories got saved."""
     # A slow run can still be going when cron starts the next one. Only one at a time.
     if not try_lock(conn):
@@ -91,7 +91,7 @@ def run_once(session: requests.Session, conn) -> int:
         unlock(conn)
 
 
-def _collect(session: requests.Session, conn) -> int:
+def _collect(session: requests.Session, conn: psycopg.Connection) -> int:
     started = time.monotonic()
     now = utc_now()
     slot = poll_slot(now)

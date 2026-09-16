@@ -31,7 +31,7 @@ def test_poll_slot_rounds_down_to_five_minutes():
     )
 
 
-def test_young_stories_are_always_due():
+def test_young_stories_are_due_every_run():
     assert is_due(age=timedelta(minutes=30), since_last_check=timedelta(minutes=5))
 
 
