@@ -30,7 +30,7 @@ def unlock(conn: psycopg.Connection) -> None:
 
 
 def insert_raw_snapshot(
-    conn: psycopg.Connection, hn_id: int, payload: dict | None, poll_slot: datetime
+    conn: psycopg.Connection, hn_id: int, payload: dict, poll_slot: datetime
 ) -> bool:
     """Store the response exactly as HN sent it. False if this slot already has the story."""
     with conn.cursor() as cur:

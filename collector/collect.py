@@ -54,7 +54,7 @@ def pick_stories_to_check(
     """New stories we haven't seen yet, plus tracked ones that are due."""
     seen = {hn_id for hn_id, _, _ in recent}
     unseen = [hn_id for hn_id in new_ids if hn_id not in seen]
-    # No posted time means HN answered null, usually for a deleted story. Seen, but never due.
+    # A row with no usable posted time can't be aged, so it is never due.
     due = [
         hn_id
         for hn_id, posted_at, last_checked_at in recent
@@ -97,8 +97,7 @@ def _collect(session: requests.Session, conn) -> int:
             failed += 1
             continue
         if item is None:
-            # Saving the null answer marks the story as seen, so we stop asking about it.
-            insert_raw_snapshot(conn, story_id, None, slot)
+            # Brand new stories often come back null for a few seconds. Try again next run.
             nulls += 1
             continue
         if insert_raw_snapshot(conn, story_id, item, slot):
