@@ -1,6 +1,5 @@
--- Raw landing table for the HN collector (ELT: load untouched, transform later).
--- hn_id is pulled out of the payload only so we can index/query by it; every
--- other field stays inside payload exactly as the API returned it.
+-- Raw landing table: API responses stored as-is. Cleanup happens later in SQL (ELT).
+-- hn_id is copied out of the payload just so we can index it.
 CREATE TABLE IF NOT EXISTS raw_snapshots (
     id BIGSERIAL PRIMARY KEY,
     hn_id BIGINT NOT NULL,
