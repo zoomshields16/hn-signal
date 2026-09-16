@@ -48,7 +48,9 @@ def is_due(age: timedelta, since_last_check: timedelta) -> bool:
 
 
 def pick_stories_to_check(
-    new_ids: list[int], recent: list[tuple[int, datetime, datetime]], now: datetime
+    new_ids: list[int],
+    recent: list[tuple[int, datetime | None, datetime]],
+    now: datetime,
 ) -> list[int]:
     """New stories we haven't seen yet, plus tracked ones that are due."""
     seen = {hn_id for hn_id, _, _ in recent}

@@ -49,7 +49,7 @@ def insert_raw_snapshot(
 
 def get_recent_stories(
     conn: psycopg.Connection, window: timedelta
-) -> list[tuple[int, datetime, datetime]]:
+) -> list[tuple[int, datetime | None, datetime]]:
     """Watch list: (hn_id, posted_at, last_checked_at) for each recently checked story.
 
     posted_at is null when the story has no time in its JSON, which happens with deleted ones.
