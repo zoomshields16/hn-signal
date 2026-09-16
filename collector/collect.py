@@ -32,8 +32,13 @@ OLDER_EVERY = timedelta(minutes=55)
 # A late run can end just before the next slot starts. Without this gap, the next run
 # would save the same readings a few seconds later.
 MIN_GAP = timedelta(minutes=4)
-# Stop starting new fetches after 4 minutes, so a slow run ends before the next cron run.
-RUN_DEADLINE_SECONDS = 240
+# Stop starting new fetches 4 minutes into the slot. Even a slow last fetch then ends
+# before the next slot starts, including late runs after the Mac wakes up.
+RUN_WINDOW = timedelta(minutes=4)
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 def poll_slot(now: datetime) -> datetime:
@@ -87,8 +92,9 @@ def run_once(session: requests.Session, conn) -> int:
 
 def _collect(session: requests.Session, conn) -> int:
     started = time.monotonic()
-    now = datetime.now(timezone.utc)
+    now = utc_now()
     slot = poll_slot(now)
+    deadline = slot + RUN_WINDOW
     # Logged up front, so a run that crashes partway still shows up (with no finished_at).
     run_id = start_run(conn, slot)
     to_check = pick_stories_to_check(
@@ -96,7 +102,7 @@ def _collect(session: requests.Session, conn) -> int:
     )
     saved = failed = nulls = 0
     for i, story_id in enumerate(to_check):
-        if time.monotonic() - started > RUN_DEADLINE_SECONDS:
+        if utc_now() >= deadline:
             logger.warning("out of time, leaving %d stories for the next run", len(to_check) - i)
             break
         try:

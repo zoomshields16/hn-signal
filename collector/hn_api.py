@@ -5,6 +5,9 @@ from requests.adapters import HTTPAdapter, Retry
 
 from collector.config import HN_API_BASE
 
+# HN answers in well under a second. A short timeout keeps one stuck story from eating a run.
+TIMEOUT_SECONDS = 5
+
 
 def make_session() -> requests.Session:
     """Session that retries failed requests up to 3 times, backing off a bit more each time."""
@@ -23,13 +26,13 @@ def make_session() -> requests.Session:
 
 def fetch_new_story_ids(session: requests.Session) -> list[int]:
     """Newest ~500 story IDs, newest first. Empty list if the API answers null."""
-    resp = session.get(f"{HN_API_BASE}/newstories.json", timeout=10)
+    resp = session.get(f"{HN_API_BASE}/newstories.json", timeout=TIMEOUT_SECONDS)
     resp.raise_for_status()
     return resp.json() or []
 
 
 def fetch_item(session: requests.Session, item_id: int) -> dict | None:
     """None if the API answers null for this ID."""
-    resp = session.get(f"{HN_API_BASE}/item/{item_id}.json", timeout=10)
+    resp = session.get(f"{HN_API_BASE}/item/{item_id}.json", timeout=TIMEOUT_SECONDS)
     resp.raise_for_status()
     return resp.json()

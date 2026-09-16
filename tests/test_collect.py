@@ -11,6 +11,19 @@ from collector.collect import is_due, pick_stories_to_check, poll_slot, run_once
 NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
 
 
+@pytest.fixture(autouse=True)
+def fake_run_setup():
+    # Pin the clock early in a slot and fake the lock and run log. Tests can patch their own.
+    with (
+        patch("collector.collect.utc_now", return_value=NOW + timedelta(seconds=30)),
+        patch("collector.collect.try_lock", return_value=True),
+        patch("collector.collect.unlock"),
+        patch("collector.collect.start_run", return_value=1),
+        patch("collector.collect.finish_run"),
+    ):
+        yield
+
+
 def test_poll_slot_rounds_down_to_five_minutes():
     assert poll_slot(datetime(2026, 9, 11, 12, 7, 31, 500, tzinfo=timezone.utc)) == datetime(
         2026, 9, 11, 12, 5, tzinfo=timezone.utc
@@ -152,16 +165,33 @@ def test_run_once_logs_the_run_with_its_counts(
     mock_finish.assert_called_once_with(conn, 42, due=3, saved=1, failed=1, nulls=1)
 
 
-@patch("collector.collect.time")
+@patch("collector.collect.utc_now")
 @patch("collector.collect.insert_raw_snapshot", return_value=True)
 @patch("collector.collect.fetch_item", return_value={"id": 1})
 @patch("collector.collect.get_recent_stories", return_value=[])
 @patch("collector.collect.fetch_new_story_ids", return_value=[1, 2, 3])
-def test_run_stops_starting_new_fetches_after_the_deadline(
-    _mock_new_ids, _mock_recent, mock_fetch_item, _mock_insert, mock_time
+def test_run_stops_starting_new_fetches_four_minutes_into_the_slot(
+    _mock_new_ids, _mock_recent, mock_fetch_item, _mock_insert, mock_now
 ):
-    # Clock: start, before story 1, before story 2 (too late), log line.
-    mock_time.monotonic.side_effect = [0, 0, 300, 300]
+    # Clock: run starts 12:00:30, story 1 at 12:03:00, story 2 at 12:04:10 (too late).
+    mock_now.side_effect = [
+        NOW + timedelta(seconds=30),
+        NOW + timedelta(minutes=3),
+        NOW + timedelta(minutes=4, seconds=10),
+    ]
 
     assert run_once(MagicMock(), MagicMock()) == 1
     mock_fetch_item.assert_called_once()
+
+
+@patch("collector.collect.utc_now")
+@patch("collector.collect.fetch_item")
+@patch("collector.collect.get_recent_stories", return_value=[])
+@patch("collector.collect.fetch_new_story_ids", return_value=[1, 2, 3])
+def test_a_run_that_starts_too_late_leaves_everything_for_the_next_one(
+    _mock_new_ids, _mock_recent, mock_fetch_item, mock_now
+):
+    mock_now.return_value = NOW + timedelta(minutes=4, seconds=45)
+
+    assert run_once(MagicMock(), MagicMock()) == 0
+    mock_fetch_item.assert_not_called()
