@@ -6,4 +6,3 @@ sources:
     schema: public
     tables:
       - name: raw_snapshots
-      - name: collector_runs

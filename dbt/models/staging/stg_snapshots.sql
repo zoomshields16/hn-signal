@@ -1,5 +1,5 @@
 -- One row per reading, with the JSON unpacked into columns.
--- Numbers are only read when the JSON really holds a number, so one odd row can't break the run.
+-- Numbers are read as numeric, so a fraction or an oversized value can't break the run.
 
 select
     id as snapshot_id,
@@ -7,9 +7,10 @@ select
     poll_slot,
     fetched_at,
     case
-        when jsonb_typeof(payload -> 'score') = 'number' then (payload ->> 'score')::int
+        when jsonb_typeof(payload -> 'score') = 'number' then (payload ->> 'score')::numeric
     end as score,
     case
-        when jsonb_typeof(payload -> 'descendants') = 'number' then (payload ->> 'descendants')::int
+        when jsonb_typeof(payload -> 'descendants') = 'number'
+        then (payload ->> 'descendants')::numeric
     end as comment_count
 from {{ source('raw', 'raw_snapshots') }}
