@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# dbt
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/

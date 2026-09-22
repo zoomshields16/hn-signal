@@ -1,0 +1,8 @@
+name: hn_signal
+version: "1.0"
+profile: hn_signal
+
+models:
+  hn_signal:
+    staging:
+      +materialized: view
