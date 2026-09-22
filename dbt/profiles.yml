@@ -1,5 +1,6 @@
-# Connection settings come from environment variables, so no password is ever stored here.
-# Defaults point at a local Postgres, which is what someone running this project locally has.
+# Connection settings come from environment variables, so no password is stored here.
+# dev is the default and builds into its own schema. prod is only for the real tables,
+# and you have to ask for it: dbt run --target prod
 hn_signal:
   target: dev
   outputs:
@@ -7,8 +8,18 @@ hn_signal:
       type: postgres
       host: "{{ env_var('DBT_HOST', 'localhost') }}"
       port: "{{ env_var('DBT_PORT', '5432') | int }}"
-      user: "{{ env_var('DBT_USER', 'postgres') }}"
+      user: "{{ env_var('DBT_USER', '') }}"
       password: "{{ env_var('DBT_PASSWORD', '') }}"
       dbname: "{{ env_var('DBT_DBNAME', 'hn') }}"
       schema: "{{ env_var('DBT_SCHEMA', 'dbt_dev') }}"
+      threads: 4
+
+    prod:
+      type: postgres
+      host: "{{ env_var('DBT_HOST', 'localhost') }}"
+      port: "{{ env_var('DBT_PORT', '5432') | int }}"
+      user: "{{ env_var('DBT_USER', '') }}"
+      password: "{{ env_var('DBT_PASSWORD', '') }}"
+      dbname: "{{ env_var('DBT_DBNAME', 'hn') }}"
+      schema: analytics
       threads: 4
