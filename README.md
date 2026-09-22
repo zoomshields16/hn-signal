@@ -34,6 +34,22 @@ The real collection runs as a Railway cron job, so it never depends on a laptop 
 2. Add a service from this repo with start command `python -m collector.collect` and cron schedule `*/5 * * * *`.
 3. Set the service's `DATABASE_URL` to the database's connection URL.
 
+## Transformations (dbt)
+The models in `dbt/` turn the raw JSON into staging tables. Connection settings come from
+environment variables, so nothing sensitive is stored in the repo.
+
+Against a local database:
+```
+export DBT_HOST=localhost DBT_PORT=5432 DBT_DBNAME=hn DBT_SCHEMA=dbt_dev
+.venv/bin/dbt build --project-dir dbt --profiles-dir dbt
+```
+Against the hosted database, open a tunnel first and point dbt at it:
+```
+railway connect postgres --tunnel-only --port 15432
+export DBT_HOST=localhost DBT_PORT=15432 DBT_DBNAME=railway DBT_USER=... DBT_PASSWORD=...
+```
+Builds go to the `dbt_dev` schema. Add `--target prod` to build the real tables in `analytics`.
+
 ## Tests
 Tests use their own `hn_test` database, so they never touch collected data. The database
 tests skip when no local Postgres is running, and CI always runs them.
