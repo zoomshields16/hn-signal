@@ -9,7 +9,7 @@ per run in `collector_runs`. See `docs/decisions/` for why.
 ## Setup
 ```
 python3.12 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -r requirements-dev.txt
 createdb hn
 for f in sql/*.sql; do psql -v ON_ERROR_STOP=1 -d hn -f "$f" || break; done
 cp .env.example .env
