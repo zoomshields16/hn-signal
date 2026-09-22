@@ -1,11 +1,13 @@
 """Tests against real Postgres (hn_test locally, a throwaway db in CI)."""
 
 import os
+import socket
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import psycopg
 import pytest
+from psycopg.conninfo import conninfo_to_dict
 
 from collector.db import (
     finish_run,
@@ -22,17 +24,22 @@ TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "postgresql://localhost:
 SLOT = datetime(2026, 9, 11, 12, 5, tzinfo=timezone.utc)
 
 
+def _postgres_is_listening() -> bool:
+    settings = conninfo_to_dict(TEST_DATABASE_URL)
+    address = (settings.get("host", "localhost"), int(settings.get("port", 5432)))
+    with socket.socket() as probe:
+        probe.settimeout(1)
+        return probe.connect_ex(address) == 0
+
+
 @pytest.fixture(scope="session")
 def schema():
-    try:
-        connection = psycopg.connect(TEST_DATABASE_URL)
-    except psycopg.OperationalError:
-        # CI always has a database, so a failure there is a real one.
-        if os.environ.get("CI"):
-            raise
-        pytest.skip("no test database reachable, start Postgres or set TEST_DATABASE_URL")
+    # Only a missing server is worth skipping. A missing database or a bad password
+    # is a real problem and should fail loudly. CI always has a server.
+    if not os.environ.get("CI") and not _postgres_is_listening():
+        pytest.skip("no Postgres listening for the test database")
     # Runs every migration once, like a fresh setup.
-    with connection:
+    with psycopg.connect(TEST_DATABASE_URL) as connection:
         for path in sorted(SQL_DIR.glob("*.sql")):
             connection.execute(path.read_text())
 
