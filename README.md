@@ -28,6 +28,12 @@ crontab -l 2>/dev/null | grep -q collector.collect || \
 ```
 Only runs while the machine is awake. On macOS, cron may need Full Disk Access if the repo is in Documents.
 
+## Run it on Railway
+The real collection runs as a Railway cron job, so it never depends on a laptop being awake.
+1. Add a Postgres database to a Railway project and run the files in `sql/` against it.
+2. Add a service from this repo with start command `python -m collector.collect` and cron schedule `*/5 * * * *`.
+3. Set the service's `DATABASE_URL` to the database's connection URL.
+
 ## Tests
 Tests use their own `hn_test` database, so they never touch collected data.
 ```
