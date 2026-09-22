@@ -35,7 +35,8 @@ The real collection runs as a Railway cron job, so it never depends on a laptop 
 3. Set the service's `DATABASE_URL` to the database's connection URL.
 
 ## Tests
-Tests use their own `hn_test` database, so they never touch collected data.
+Tests use their own `hn_test` database, so they never touch collected data. The database
+tests skip when no local Postgres is running, and CI always runs them.
 ```
 createdb hn_test
 .venv/bin/pytest

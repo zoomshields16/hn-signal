@@ -24,8 +24,15 @@ SLOT = datetime(2026, 9, 11, 12, 5, tzinfo=timezone.utc)
 
 @pytest.fixture(scope="session")
 def schema():
+    try:
+        connection = psycopg.connect(TEST_DATABASE_URL)
+    except psycopg.OperationalError:
+        # CI always has a database, so a failure there is a real one.
+        if os.environ.get("CI"):
+            raise
+        pytest.skip("no test database reachable, start Postgres or set TEST_DATABASE_URL")
     # Runs every migration once, like a fresh setup.
-    with psycopg.connect(TEST_DATABASE_URL) as connection:
+    with connection:
         for path in sorted(SQL_DIR.glob("*.sql")):
             connection.execute(path.read_text())
 
@@ -111,7 +118,7 @@ def test_unlock_lets_the_next_run_take_the_lock(conn):
         next_run.close()
 
 
-def test_unlock_does_nothing_on_a_closed_connection():
+def test_unlock_does_nothing_on_a_closed_connection(schema):
     closed = psycopg.connect(TEST_DATABASE_URL)
     closed.close()
 
