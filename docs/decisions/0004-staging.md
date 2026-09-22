@@ -1,6 +1,6 @@
 # 0004: Staging models in dbt
 
-## What we decided
+## What was decided
 1. Use dbt to turn the raw JSON into staging tables, instead of SQL scripts run by hand.
 2. Start with two models: stg_snapshots, one row per reading, and stg_stories, one row per story.
 3. Build them as views.
@@ -16,7 +16,7 @@ Deleted stories come back without a title, so stg_stories takes the newest readi
 
 The dev target writes to its own schema, so nothing we try out touches the real tables. Building the real ones takes `--target prod`, which has to be asked for by name.
 
-## What we did not do
+## What was not done
 1. Run SQL scripts in order by hand. That is the job dbt already does, with tests included.
 2. Build staging as tables. Views are enough at this size and are never stale.
 3. Load sample data in CI. CI proves the models compile and run; the data checks run against the real database.
