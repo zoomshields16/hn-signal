@@ -10,7 +10,7 @@
 ## Why
 The raw table holds one JSON response per reading. Everything after this point needs real columns and the same definitions everywhere. dbt keeps those definitions in one place, works out the order to run them, and tests the results.
 
-The models started as views. A view is never stale, but it stores nothing, so every query has to unpack the JSON again for every row. The analysis in the next branch reads these tables constantly, so they are stored instead. stg_snapshots grows by tens of thousands of rows a day, so rebuilding it on every run would waste time. The incremental model only adds rows with a raw id above the highest one it already has, which is safe because the collector is the only writer and commits rows in order. stg_stories is small, so a full rebuild is simpler.
+The models started as views. A view is never stale, but it stores nothing, so every query has to unpack the JSON again for every row. The analysis in the next branch reads these tables constantly, so they are stored instead. stg_snapshots grows by tens of thousands of rows a day, so rebuilding it on every run would waste time. Each incremental run re-checks the last hour of readings and merges on snapshot_id, so a reading that commits late or gets written twice still ends up there exactly once. stg_stories is small, so a full rebuild is simpler, and it builds after stg_snapshots, so every reading there has its story here even while the collector is writing.
 
 The indexes cover the lookups the analysis will do. Finding one story's readings took 0.27 ms with the index and 6 ms without it, because without it Postgres read all 150,140 rows to find 46. That gap grows with the table.
 
