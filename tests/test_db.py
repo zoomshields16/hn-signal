@@ -26,10 +26,19 @@ SLOT = datetime(2026, 9, 11, 12, 5, tzinfo=timezone.utc)
 
 def _postgres_is_listening() -> bool:
     settings = conninfo_to_dict(TEST_DATABASE_URL)
-    address = (settings.get("host", "localhost"), int(settings.get("port", 5432)))
-    with socket.socket() as probe:
-        probe.settimeout(1)
-        return probe.connect_ex(address) == 0
+    host = settings.get("host", "localhost")
+    # A socket path or several hosts can't be probed this way, so let the real connection decide.
+    if host.startswith("/") or "," in host:
+        return True
+    try:
+        port = int(settings.get("port", 5432))
+    except ValueError:
+        return True
+    try:
+        socket.create_connection((host, port), timeout=1).close()
+    except OSError:
+        return False
+    return True
 
 
 @pytest.fixture(scope="session")
