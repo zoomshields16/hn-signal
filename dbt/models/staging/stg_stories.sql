@@ -1,3 +1,10 @@
+{{
+    config(
+        materialized='table',
+        indexes=[{'columns': ['story_id'], 'unique': True}],
+    )
+}}
+
 -- One row per story, holding the parts that don't change while it is on the site.
 -- Deleted stories come back without a title, so take the newest reading that still has one
 -- and fall back to the newest reading of all.
