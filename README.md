@@ -33,6 +33,10 @@ The real collection runs as a Railway cron job, so it never depends on a laptop 
 1. Add a Postgres database to a Railway project and run the files in `sql/` against it.
 2. Add a service from this repo with start command `python -m collector.collect` and cron schedule `*/5 * * * *`.
 3. Set the service's `DATABASE_URL` to the database's connection URL.
+4. Add a second service from this repo for dbt. Set `RAILPACK_INSTALL_CMD` to
+   `pip install -r requirements-dbt.txt`, the start command to
+   `dbt build --project-dir dbt --profiles-dir dbt --target prod`, the cron schedule to
+   `*/15 * * * *`, and the `DBT_*` variables to the database's host, port, user, password and name.
 
 ## Transformations (dbt)
 The models in `dbt/` turn the raw JSON into staging tables. Connection settings come from
@@ -48,7 +52,8 @@ Against the hosted database, open a tunnel first and point dbt at it:
 railway connect postgres --tunnel-only --port 15432
 export DBT_HOST=localhost DBT_PORT=15432 DBT_DBNAME=railway DBT_USER=... DBT_PASSWORD=...
 ```
-Builds go to the `dbt_dev` schema. Add `--target prod` to build the real tables in `analytics`.
+Builds go to the `dbt_dev` schema. Add `--target prod` to build the real tables, which land
+in their own schemas (`staging` for now).
 
 ## Tests
 Tests use their own `hn_test` database, so they never touch collected data. The database
