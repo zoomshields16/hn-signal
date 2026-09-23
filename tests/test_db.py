@@ -162,8 +162,9 @@ def test_a_story_marked_deleted_is_flagged(conn):
     assert [(hn_id, deleted) for hn_id, _, _, deleted in rows] == [(8, True)]
 
 
-def test_an_odd_time_value_does_not_break_the_watch_list(conn):
-    insert_raw_snapshot(conn, 6, {"id": 6, "time": "soon"}, SLOT)
+@pytest.mark.parametrize("odd_time", ["soon", 1e20])
+def test_an_odd_time_value_does_not_break_the_watch_list(conn, odd_time):
+    insert_raw_snapshot(conn, 6, {"id": 6, "time": odd_time}, SLOT)
 
     rows = get_recent_stories(conn, timedelta(hours=24))
 
