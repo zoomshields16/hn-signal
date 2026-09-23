@@ -35,8 +35,13 @@ def test_young_stories_are_due_every_run():
     assert is_due(age=timedelta(minutes=30), since_last_check=timedelta(minutes=5))
 
 
-def test_nothing_is_due_twice_within_four_minutes():
+def test_nothing_is_due_twice_within_two_minutes():
     assert not is_due(age=timedelta(minutes=30), since_last_check=timedelta(minutes=1))
+
+
+def test_a_young_story_is_still_due_after_a_late_run():
+    # The last run started late, so this story was checked only 3.5 minutes ago.
+    assert is_due(age=timedelta(minutes=30), since_last_check=timedelta(minutes=3, seconds=30))
 
 
 def test_older_stories_are_due_about_hourly():

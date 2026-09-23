@@ -61,10 +61,13 @@ def get_recent_stories(
     rows = conn.execute(
         """
         SELECT hn_id,
-               -- Only numeric times count, so one odd row can't break every run.
+               -- Only numeric times up to the year 2100 count, so one odd row can't break
+               -- every run. Same rule as the dbt staging model.
                to_timestamp(max(
-                   CASE WHEN jsonb_typeof(payload -> 'time') = 'number'
-                        THEN (payload ->> 'time')::double precision
+                   CASE WHEN jsonb_typeof(payload -> 'time') = 'number' THEN
+                       CASE WHEN (payload ->> 'time')::double precision BETWEEN 0 AND 4102444800
+                            THEN (payload ->> 'time')::double precision
+                       END
                    END
                )) AS posted_at,
                max(fetched_at) AS last_checked_at,

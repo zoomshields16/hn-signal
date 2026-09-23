@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17
+        image: postgres:18
         env:
           POSTGRES_USER: hn_ci
           POSTGRES_PASSWORD: hn_ci
@@ -34,7 +34,24 @@ jobs:
           python-version-file: ".python-version"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-dev.txt
 
       - name: Run tests
         run: pytest -q
+
+      - name: Create the tables
+        run: for f in sql/*.sql; do psql -v ON_ERROR_STOP=1 "$TEST_DATABASE_URL" -f "$f"; done
+
+      - name: Build and test the dbt models
+        env:
+          DBT_HOST: localhost
+          DBT_PORT: "5432"
+          DBT_USER: hn_ci
+          DBT_PASSWORD: hn_ci
+          DBT_DBNAME: hn_ci
+          DBT_SCHEMA: dbt_ci
+        run: |
+          dbt build --project-dir dbt --profiles-dir dbt
+          # A second run takes the incremental path, and compiling prod checks the schema macro.
+          dbt build --project-dir dbt --profiles-dir dbt
+          dbt compile --project-dir dbt --profiles-dir dbt --target prod

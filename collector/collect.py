@@ -30,9 +30,10 @@ YOUNG_FOR = timedelta(hours=2)
 TRACK_FOR = timedelta(hours=24)
 # 55, not 60, so a few seconds of drift can't bump a check to the next run.
 OLDER_EVERY = timedelta(minutes=55)
-# A late run can end just before the next slot starts. Without this gap, the next run
-# would save the same readings a few seconds later.
-MIN_GAP = timedelta(minutes=4)
+# Stops a late run and the next one from saving the same story seconds apart. Kept well
+# under 5 minutes, because Railway runs can start a minute late and a bigger gap would
+# skip a young story's next check.
+MIN_GAP = timedelta(minutes=2)
 # Stop starting new fetches 4 minutes into the slot. Even a slow last fetch then ends
 # before the next slot starts, including late runs after the Mac wakes up.
 RUN_WINDOW = timedelta(minutes=4)

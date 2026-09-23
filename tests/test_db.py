@@ -1,11 +1,13 @@
 """Tests against real Postgres (hn_test locally, a throwaway db in CI)."""
 
 import os
+import socket
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import psycopg
 import pytest
+from psycopg.conninfo import conninfo_to_dict
 
 from collector.db import (
     finish_run,
@@ -22,8 +24,29 @@ TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "postgresql://localhost:
 SLOT = datetime(2026, 9, 11, 12, 5, tzinfo=timezone.utc)
 
 
+def _postgres_is_listening() -> bool:
+    settings = conninfo_to_dict(TEST_DATABASE_URL)
+    host = settings.get("host", "localhost")
+    # A socket path or several hosts can't be probed this way, so let the real connection decide.
+    if host.startswith("/") or "," in host:
+        return True
+    try:
+        port = int(settings.get("port", 5432))
+    except ValueError:
+        return True
+    try:
+        socket.create_connection((host, port), timeout=1).close()
+    except OSError:
+        return False
+    return True
+
+
 @pytest.fixture(scope="session")
 def schema():
+    # Only a missing server is worth skipping. A missing database or a bad password
+    # is a real problem and should fail loudly. CI always has a server.
+    if not os.environ.get("CI") and not _postgres_is_listening():
+        pytest.skip("no Postgres listening for the test database")
     # Runs every migration once, like a fresh setup.
     with psycopg.connect(TEST_DATABASE_URL) as connection:
         for path in sorted(SQL_DIR.glob("*.sql")):
@@ -111,7 +134,7 @@ def test_unlock_lets_the_next_run_take_the_lock(conn):
         next_run.close()
 
 
-def test_unlock_does_nothing_on_a_closed_connection():
+def test_unlock_does_nothing_on_a_closed_connection(schema):
     closed = psycopg.connect(TEST_DATABASE_URL)
     closed.close()
 
@@ -148,8 +171,9 @@ def test_a_story_marked_deleted_is_flagged(conn):
     assert [(hn_id, deleted) for hn_id, _, _, deleted in rows] == [(8, True)]
 
 
-def test_an_odd_time_value_does_not_break_the_watch_list(conn):
-    insert_raw_snapshot(conn, 6, {"id": 6, "time": "soon"}, SLOT)
+@pytest.mark.parametrize("odd_time", ["soon", 1e20])
+def test_an_odd_time_value_does_not_break_the_watch_list(conn, odd_time):
+    insert_raw_snapshot(conn, 6, {"id": 6, "time": odd_time}, SLOT)
 
     rows = get_recent_stories(conn, timedelta(hours=24))
 

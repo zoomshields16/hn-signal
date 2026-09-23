@@ -1,0 +1,27 @@
+version: 2
+
+models:
+  - name: stg_stories
+    description: One row per story, with the parts that don't change.
+    columns:
+      - name: story_id
+        description: The story's id on HN.
+        data_tests:
+          - unique
+          - not_null
+
+  - name: stg_snapshots
+    description: One row per reading of a story's score.
+    columns:
+      - name: snapshot_id
+        description: The raw row this reading came from.
+        data_tests:
+          - unique
+          - not_null
+      - name: story_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_stories')
+                field: story_id
