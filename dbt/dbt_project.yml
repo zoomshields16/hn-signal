@@ -5,4 +5,4 @@ profile: hn_signal
 models:
   hn_signal:
     staging:
-      +materialized: view
+      +schema: staging
