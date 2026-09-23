@@ -50,4 +50,8 @@ jobs:
           DBT_PASSWORD: hn_ci
           DBT_DBNAME: hn_ci
           DBT_SCHEMA: dbt_ci
-        run: dbt build --project-dir dbt --profiles-dir dbt
+        run: |
+          dbt build --project-dir dbt --profiles-dir dbt
+          # A second run takes the incremental path, and compiling prod checks the schema macro.
+          dbt build --project-dir dbt --profiles-dir dbt
+          dbt compile --project-dir dbt --profiles-dir dbt --target prod
