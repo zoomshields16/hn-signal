@@ -1,7 +1,10 @@
 {{
     config(
         materialized='incremental',
+        unique_key='snapshot_id',
+        on_schema_change='fail',
         indexes=[
+            {'columns': ['snapshot_id'], 'unique': True},
             {'columns': ['story_id']},
             {'columns': ['fetched_at']},
         ],
@@ -26,7 +29,9 @@ select
 from {{ source('raw', 'raw_snapshots') }}
 
 {% if is_incremental() %}
-    -- Raw ids only count up, and the collector is the only writer and commits one row at a
-    -- time, so rows never show up out of order. Anything above the highest id here is new.
-    where id > (select coalesce(max(snapshot_id), 0) from {{ this }})
+    -- Re-check the last hour and let unique_key merge the overlap, so a reading that
+    -- commits late or gets written twice still ends up here exactly once.
+    where fetched_at > coalesce(
+        (select max(fetched_at) from {{ this }}), '1970-01-01'::timestamptz
+    ) - interval '1 hour'
 {% endif %}
