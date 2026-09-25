@@ -14,47 +14,50 @@ with readings as (
 
 ),
 
--- Latest reading at or before the one-hour mark. Nothing after it is used, so nothing
--- from after the hour can leak into the features.
-before_one_hour as (
+-- The latest reading with a score in each window. The one-hour window stops at minute 60,
+-- so nothing from after the hour can leak into the features.
+windowed as (
 
     select
         story_id,
         age_minutes,
         score,
         comment_count,
-        row_number() over (partition by story_id order by age_minutes desc) as recency
+        case
+            when age_minutes between 50 and 60 then 'one_hour'
+            when age_minutes between 20 and 30 then 'half_hour'
+        end as window_name
     from readings
-    where age_minutes <= 60
+    where score is not null
 
 ),
 
-before_half_hour as (
+latest_in_window as (
 
     select
-        story_id,
-        age_minutes,
-        score,
-        row_number() over (partition by story_id order by age_minutes desc) as recency
-    from readings
-    where age_minutes <= 30
+        *,
+        row_number() over (
+            partition by story_id, window_name
+            order by age_minutes desc
+        ) as recency
+    from windowed
+    where window_name is not null
 
 ),
 
--- Only counts as the one-hour score if it was taken at least 50 minutes in.
 one_hour as (
 
     select story_id, age_minutes, score, comment_count
-    from before_one_hour
-    where recency = 1 and age_minutes >= 50
+    from latest_in_window
+    where window_name = 'one_hour' and recency = 1
 
 ),
 
 half_hour as (
 
-    select story_id, score
-    from before_half_hour
-    where recency = 1 and age_minutes >= 20
+    select story_id, age_minutes, score
+    from latest_in_window
+    where window_name = 'half_hour' and recency = 1
 
 ),
 
@@ -76,24 +79,31 @@ select
     stories.posted_at,
     extract(hour from stories.posted_at at time zone 'UTC')::int as posted_hour_utc,
     extract(isodow from stories.posted_at at time zone 'UTC')::int as posted_weekday,
-    round(lifetime.first_reading_minutes, 1) as first_reading_minutes,
-    round(one_hour.age_minutes, 1) as one_hour_reading_minutes,
+    lifetime.first_reading_minutes,
+    one_hour.age_minutes as one_hour_reading_minutes,
+    half_hour.age_minutes as half_hour_reading_minutes,
     one_hour.score as score_at_1h,
     one_hour.comment_count as comments_at_1h,
-    one_hour.score - half_hour.score as score_gain_last_30m,
+    half_hour.score as score_at_30m,
+    -- A rate, so stories whose readings landed a few minutes apart can still be compared.
+    round(
+        (one_hour.score - half_hour.score) / (one_hour.age_minutes - half_hour.age_minutes), 3
+    ) as points_per_minute_30_to_60,
     lifetime.peak_score,
     lifetime.peak_score >= 100 as reached_100,
-    round(lifetime.last_reading_minutes / 60, 1) as hours_tracked,
+    round(lifetime.last_reading_minutes / 60, 1) as age_at_last_reading_hours,
     stories.deleted,
+    stories.dead,
     coalesce(
         not stories.deleted
+        and not stories.dead
         -- Seen early enough to know how it started.
         and lifetime.first_reading_minutes <= 10
         and one_hour.score is not null
-        -- Its first day is over...
+        -- Its first day is over and it was watched through most of it. Hits and misses get
+        -- the same rule, so a gap in collection can't make hits look more common.
         and stories.posted_at <= now() - interval '24 hours'
-        -- ...and it either reached 100 or was watched long enough to be sure it didn't.
-        and (lifetime.peak_score >= 100 or lifetime.last_reading_minutes >= 20 * 60),
+        and lifetime.last_reading_minutes >= 20 * 60,
         false
     ) as is_usable
 from {{ ref('stg_stories') }} as stories
