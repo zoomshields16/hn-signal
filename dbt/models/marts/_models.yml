@@ -1,0 +1,14 @@
+version: 2
+
+models:
+  - name: fct_story_outcomes
+    description: One row per story, with its first hour and whether it reached 100 points.
+    columns:
+      - name: story_id
+        data_tests:
+          - unique
+          - not_null
+      - name: is_usable
+        description: True for stories that meet every rule for modeling.
+        data_tests:
+          - not_null
