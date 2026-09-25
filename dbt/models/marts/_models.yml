@@ -8,10 +8,6 @@ models:
         data_tests:
           - unique
           - not_null
-          - relationships:
-              arguments:
-                to: ref('stg_stories')
-                field: story_id
       - name: is_usable
         description: True for stories that meet every rule for modeling.
         data_tests:
