@@ -33,6 +33,7 @@ per_story as (
         min(fetched_at) as first_seen_at,
         max(fetched_at) as last_seen_at,
         coalesce(bool_or(payload ->> 'deleted' = 'true'), false) as deleted,
+        coalesce(bool_or(payload ->> 'dead' = 'true'), false) as dead,
         -- The posted time never changes, so take it from any reading that has a sane one.
         -- 4102444800 is the year 2100. The CASEs are nested because Postgres doesn't
         -- promise to check the type before trying the cast inside a single AND.
@@ -57,6 +58,7 @@ select
     picked.payload ->> 'url' as url,
     per_story.posted_at,
     per_story.deleted,
+    per_story.dead,
     per_story.first_seen_at,
     per_story.last_seen_at
 from per_story
