@@ -6,3 +6,6 @@ models:
   hn_signal:
     staging:
       +schema: staging
+    marts:
+      +schema: analytics
+      +materialized: table
