@@ -94,6 +94,8 @@ select
     round(lifetime.last_reading_minutes / 60, 1) as age_at_last_reading_hours,
     stories.deleted,
     stories.dead,
+    -- A story with no usable posted time has no readings here, so its checks come out null.
+    -- It still gets a row, and counts as not usable.
     coalesce(
         not stories.deleted
         and not stories.dead
@@ -107,6 +109,6 @@ select
         false
     ) as is_usable
 from {{ ref('stg_stories') }} as stories
-join lifetime on lifetime.story_id = stories.story_id
+left join lifetime on lifetime.story_id = stories.story_id
 left join one_hour on one_hour.story_id = stories.story_id
 left join half_hour on half_hour.story_id = stories.story_id
