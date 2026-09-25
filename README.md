@@ -41,8 +41,9 @@ The real collection runs as a Railway cron job, so it never depends on a laptop 
 5. Give Railway's GitHub app access to the repo, so both services redeploy after each merge once CI passes.
 
 ## Transformations (dbt)
-The models in `dbt/` turn the raw JSON into staging tables. Connection settings come from
-environment variables, so nothing sensitive is stored in the repo.
+The models in `dbt/` turn the raw JSON into staging tables, then into `fct_story_outcomes`, one
+row per story with its first hour and whether it reached 100 points. Connection settings come
+from environment variables, so nothing sensitive is stored in the repo.
 
 Against a local database:
 ```
@@ -55,7 +56,7 @@ railway connect postgres --tunnel-only --port 15432
 export DBT_HOST=localhost DBT_PORT=15432 DBT_DBNAME=railway DBT_USER=... DBT_PASSWORD=...
 ```
 Builds go to the `dbt_dev` schema. Add `--target prod` to build the real tables, which land
-in their own schemas (`staging` for now).
+in their own schemas, `staging` and `analytics`.
 
 ## Tests
 Tests use their own `hn_test` database, so they never touch collected data. The database
