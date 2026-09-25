@@ -34,9 +34,11 @@ The real collection runs as a Railway cron job, so it never depends on a laptop 
 2. Add a service from this repo with start command `python -m collector.collect` and cron schedule `*/5 * * * *`.
 3. Set the service's `DATABASE_URL` to the database's connection URL.
 4. Add a second service from this repo for dbt. Set `RAILPACK_INSTALL_CMD` to
-   `pip install -r requirements-dbt.txt`, the start command to
-   `dbt build --project-dir dbt --profiles-dir dbt --target prod`, the cron schedule to
-   `*/15 * * * *`, and the `DBT_*` variables to the database's host, port, user, password and name.
+   `python -m venv /app/.venv && /app/.venv/bin/pip install -r requirements-dbt.txt`, the start
+   command to `/app/.venv/bin/dbt build --project-dir dbt --profiles-dir dbt --target prod`, the
+   cron schedule to `*/15 * * * *`, and the `DBT_*` variables to the database's host, port, user,
+   password and name.
+5. Give Railway's GitHub app access to the repo, so both services redeploy after each merge once CI passes.
 
 ## Transformations (dbt)
 The models in `dbt/` turn the raw JSON into staging tables. Connection settings come from
