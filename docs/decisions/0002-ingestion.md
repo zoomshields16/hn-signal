@@ -1,5 +1,7 @@
 # 0002: Ingestion
 
+Scheduling later moved from cron on a laptop to Railway. See 0003.
+
 ## What was decided
 1. Poll the newest stories list instead of the top 100 list.
 2. Check a story every run while it is under 2 hours old, then about once an hour until it is a day old, then stop. Never check the same story twice within 2 minutes, and stop checking stories HN marks as deleted.
@@ -10,18 +12,18 @@
 7. Run the collector every 5 minutes with cron.
 
 ## Why
-The first version used the top 100 list. A story only reaches that list once it is already doing well, so we missed the first hour of most stories and almost every story that flopped. Those are the two things this project needs to compare.
+The first version used the top 100 list. A story only reaches that list once it is already doing well, so the collector missed the first hour of most stories and almost every story that flopped. Those are the two things this project needs to compare.
 
 Checking by age keeps the request count reasonable. Checking every tracked story every run would be about 1,400 requests, and a score barely moves after the first couple of hours. With the age rules a normal run is a couple hundred requests and takes a few seconds.
 
 Two readings of the same story a few seconds apart would later look like two real data points. That happened in two ways. Two runs overlapped, which left 148 duplicate rows that the sql/002 migration removed. And runs that started late, like right after the laptop woke up, finished just before the next slot, so the next run saved the same stories again. The lock stops the first case. The 2 minute gap and the time limit tied to the slot stop the second. The gap started at 4 minutes, but on Railway a run sometimes starts a minute late, and 4 minutes made the next run skip about 4 percent of young stories' checks. Inside a single run, the unique constraint on story and slot stops repeats.
 
-HN sometimes answers null for a story that is only seconds old, then returns it normally a few minutes later. So a null answer is skipped, not saved. Saving it would mark the story as seen and lose its first hour. Deleted stories come back as normal objects marked deleted, and those are the ones we stop checking.
+HN sometimes answers null for a story that is only seconds old, then returns it normally a few minutes later. So a null answer is skipped, not saved. Saving it would mark the story as seen and lose its first hour. Deleted stories come back as normal objects marked deleted, and those are the ones that stop being checked.
 
 The laptop sleeps, so the collector stops with it. The run log makes that visible. A slot with no row means the collector was not running, or an earlier run still had the lock. A row with no finish time means that run crashed.
 
 ## What was not done
-1. Keep the top 100 list. It drops the stories we need to compare against.
+1. Keep the top 100 list. It drops the stories the comparison needs.
 2. Check every story every run. Six times the requests for data that barely changes.
 3. Compare payloads in Python to find duplicates. The database can enforce it properly.
 4. Use launchd instead of cron. The same cron line will work if this ever runs on a server.
