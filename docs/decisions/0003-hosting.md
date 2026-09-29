@@ -6,7 +6,7 @@
 3. Deploy from main, so merging a PR is what ships a change.
 
 ## Why
-On the laptop, collection only covered 6 to 25 percent of each day. The laptop slept, the Wi-Fi dropped, and macOS blocked some runs even with Full Disk Access. After 11 days that left 1,110 stories with a usable first hour, and only 38 of them reached 100 points. That is too few to say much about what predicts a hit.
+On the laptop, collection only covered 3 to 32 percent of each day, about 15 percent on average. The laptop slept, the Wi-Fi dropped, and macOS blocked some runs even with Full Disk Access. After 11 days that left 1,110 stories with a usable first hour, and only 38 of them reached 100 points. That is too few to say much about what predicts a hit.
 
 A server that never sleeps catches every new story, which should mean roughly ten times as many usable stories per day.
 
