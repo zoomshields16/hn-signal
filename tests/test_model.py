@@ -1,9 +1,13 @@
 """Model helper tests. Small made-up tables, no database."""
 
+from datetime import datetime, timezone
+
 import numpy as np
 import pandas as pd
 
-from analysis.model import best_threshold, make_features, precision_and_recall, time_split
+from analysis.model import (
+    best_threshold, make_features, precision_and_recall, time_split, utc_date,
+)
 
 
 def _stories(**columns):
@@ -76,3 +80,7 @@ def test_precision_is_zero_when_nothing_is_flagged():
     y_true = pd.Series([True, False])
 
     assert precision_and_recall(y_true, np.array([False, False])) == (0.0, 0.0)
+
+
+def test_utc_date_is_midnight_utc():
+    assert utc_date("2026-09-28") == datetime(2026, 9, 28, tzinfo=timezone.utc)

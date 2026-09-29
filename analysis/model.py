@@ -2,6 +2,7 @@
 
 import argparse
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -27,14 +28,25 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 CHART_PATH = REPO_ROOT / "docs" / "images" / "precision_recall.png"
 
 
-def load_stories(conn: psycopg.Connection, schema: str) -> pd.DataFrame:
+def utc_date(text: str) -> datetime:
+    """Midnight UTC on a YYYY-MM-DD date."""
+    return datetime.fromisoformat(text).replace(tzinfo=timezone.utc)
+
+
+def load_stories(
+    conn: psycopg.Connection, schema: str, posted_before: datetime | None = None
+) -> pd.DataFrame:
     """Usable stories, with only the columns the model needs."""
     query = sql.SQL(
         "select story_id, posted_at, score_at_1h, comments_at_1h, points_per_minute_30_to_60,"
         " reached_100 from {}.fct_story_outcomes where is_usable"
     ).format(sql.Identifier(schema))
+    # More stories become usable as they finish their first day, so a cutoff date keeps a
+    # published result the same when it's rerun later.
+    if posted_before:
+        query += sql.SQL(" and posted_at < %s")
     with conn.cursor() as cur:
-        cur.execute(query)
+        cur.execute(query, [posted_before] if posted_before else None)
         return pd.DataFrame(cur.fetchall(), columns=[col.name for col in cur.description])
 
 
@@ -126,11 +138,13 @@ def save_chart(y_test: pd.Series, rule_scores: np.ndarray, model_scores: np.ndar
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--schema", default="analytics", help="where dbt built fct_story_outcomes")
+    parser.add_argument("--posted-before", type=utc_date, help="only stories posted before this "
+                        "UTC date (YYYY-MM-DD), to reproduce a published result")
     args = parser.parse_args()
     started = time.monotonic()
 
     with psycopg.connect(DATABASE_URL) as conn:
-        stories = load_stories(conn, args.schema)
+        stories = load_stories(conn, args.schema, args.posted_before)
     train, test = time_split(stories, TEST_SHARE)
     y_train, y_test = train["reached_100"].astype(bool), test["reached_100"].astype(bool)
     if not y_train.any() or not y_test.any():
