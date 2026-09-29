@@ -5,9 +5,9 @@
 2. Nothing is parsed or cleaned while collecting. The only field copied out of the JSON is the story id, so the table can be indexed by it.
 
 ## Why
-The HN API only gives a story's score right now. There is no way to ask what it was an hour ago. If we miss a reading, or drop a field while saving, that data is gone for good.
+The HN API only gives a story's score right now. There is no way to ask what it was an hour ago. If a reading is missed, or drop a field while saving, that data is gone for good.
 
-Saving the whole response removes that risk. Anything we want later, such as the comment count, is already sitting in the table, and the queries that clean the data can be rewritten as often as we need without collecting again.
+Saving the whole response removes that risk. Anything needed later, such as the comment count, is already sitting in the table, and the queries that clean the data can be rewritten as often as needed without collecting again.
 
 This is ELT: extract, load, then transform. ETL does the transform first, which would mean deciding up front which fields matter.
 

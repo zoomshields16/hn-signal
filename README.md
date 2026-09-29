@@ -76,7 +76,7 @@ layers can always be rebuilt from it.
 - **Collect new stories, not top stories.** The top stories list only shows winners, so the
   data would never include the stories that went nowhere.
 - **Safe to rerun.** Each story is saved at most once per 5 minute slot, a lock stops two
-  runs from overlapping, and failed requests are retried. Every run is logged with how many
+  runs from overlapping, and server errors are retried. Every run is logged with how many
   stories it saved.
 - **Only process what's new.** Each dbt run picks up just the snapshots added since the last
   run, instead of rebuilding from all 380,000.

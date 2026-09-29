@@ -10,7 +10,7 @@ On the laptop, collection only covered 6 to 25 percent of each day. The laptop s
 
 A server that never sleeps catches every new story, which should mean roughly ten times as many usable stories per day.
 
-Railway fits the code as it is. Its cron jobs can run as often as every 5 minutes, which is our schedule. They run on UTC like our slots, and each run has to exit when it is done, which the collector already does. If a run is still going when the next one is due, Railway skips the new one, and our lock covers the same case.
+Railway fits the code as it is. Its cron jobs can run as often as every 5 minutes, which matches the collector. They run on UTC like its slots, and each run has to exit when it is done, which the collector already does. If a run is still going when the next one is due, Railway skips the new one, and the collector's lock covers the same case.
 
 ## What was not done
 1. Keep collecting on the laptop. It works, but the gaps cost too much data.
