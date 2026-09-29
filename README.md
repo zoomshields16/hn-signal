@@ -18,12 +18,12 @@ of them, and most of the stories it flags really get there. Score at one hour do
 work. A small model that also looks at comments and momentum does slightly better than score
 alone.
 
-On 1,426 newer stories the model had never seen:
+On 1,430 newer stories the model had never seen:
 
 | | Precision | Recall |
 |---|---|---|
-| Rule: 15+ points at one hour | 68% | 45% |
-| Model | 72% | 49% |
+| Rule: 15+ points at one hour | 66% | 45% |
+| Model | 70% | 49% |
 
 Precision is how often a flagged story really reached 100. Recall is how many of the stories
 that reached 100 got flagged.
@@ -34,7 +34,8 @@ The hard part is the slow starters. Out of 199 stories that reached 100, 44 had 
 points at the one hour mark, which is when they look like any other quiet story.
 
 Based on 16 days of data (Sep 11 to Sep 27, 2026). The test set has only 47 hits, so treat
-the gap between the model and the rule as small.
+the gap between the model and the rule as small. Running the model with
+`--posted-before 2026-09-28` gives these exact numbers.
 
 ## How it works
 1. **Extract and load.** A Railway cron job checks each new story every 5 minutes for its

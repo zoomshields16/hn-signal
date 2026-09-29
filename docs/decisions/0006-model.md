@@ -6,6 +6,7 @@
 3. The model is compared against the simple rule "flag a story with N or more points at one hour". Both cutoffs are chosen on the training stories. The model's comes from predictions on stories left out of each fit, so it isn't tuned to stories the model has already seen.
 4. Results are judged by precision, recall and average precision, not accuracy.
 5. The script lives in `analysis/`, and its libraries are in the dev requirements only.
+6. Published results use a cutoff on posting date, so a rerun gives the same numbers.
 
 ## Why
 Only about 3.5% of stories reach 100 points. A model that says "no" every time is 96.5% accurate and useless, so accuracy says nothing here. Precision is how often a flag was right, and recall is how many of the hits got flagged. Average precision sums up the whole trade off between the two in one number.
@@ -16,15 +17,17 @@ Logistic regression gives a probability, is quick to fit, and its weights can be
 
 Time of day and day of the week were tried on the training stories and made the model worse, so they were dropped. Log scaling stops a few stories with hundreds of points from drowning out the rest. About 2% of stories have no reading at half an hour, so their momentum is filled with the typical value from the training stories.
 
+A story only counts as usable once its first day is over, so every rebuild of the outcomes table adds a few more. The first run, a day earlier, gave slightly different numbers (72% and 68% precision) for that reason. A cutoff on posting date fixes the set of stories, so a rerun gives the same result.
+
 ## Result
-First run, 2026-09-28. The model trained on 3,330 stories posted Sep 11 to Sep 25, with 117 hits. It was tested on 1,426 stories posted Sep 26 and 27, with 47 hits.
+Run on 2026-09-29 with `--posted-before 2026-09-28`. The model trained on 3,341 stories posted Sep 11 to Sep 25, with 117 hits. It was tested on 1,430 stories posted Sep 26 and 27, with 47 hits.
 
 | | Precision | Recall | Average precision |
 |---|---|---|---|
-| Rule: 15+ points at one hour | 68% | 45% | 0.50 |
-| Model: 22%+ chance of reaching 100 | 72% | 49% | 0.55 |
+| Rule: 15+ points at one hour | 66% | 45% | 0.50 |
+| Model: 22%+ chance of reaching 100 | 70% | 49% | 0.55 |
 
-The model is a modest step up from the rule. At the chosen cutoffs it catches two more hits with fewer false alarms, and it is more precise at most recall levels. With only 47 hits in the test set, one or two stories can move these numbers by a few points.
+The model is a modest step up from the rule. At the chosen cutoffs it catches two more hits (23 vs 21) with one fewer false alarm, and it is more precise at most recall levels. With only 47 hits in the test set, one or two stories can move these numbers by a few points.
 
 Comments get a negative weight. For two stories with the same score, the one with more comments is less likely to reach 100, maybe because it is drawing debate rather than upvotes.
 
